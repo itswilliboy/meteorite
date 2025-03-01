@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -9,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/gabriel-vasile/mimetype"
-	"golang.org/x/net/context"
 )
 
 func Upload(w http.ResponseWriter, r *http.Request) {

@@ -17,9 +17,6 @@ services:
           target: /app
           ignore:
             - ./.git
-    volumes:
-      - ./tmp:/app/tmp
-
 
   database:
     image: postgres:13.14-alpine
