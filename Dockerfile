@@ -1,5 +1,4 @@
-# build server app
-FROM golang:1.24.0-alpine AS builder
+FROM golang:1.24.5-alpine AS builder
 
 WORKDIR /workspace
 
@@ -8,18 +7,12 @@ RUN go mod download
 
 COPY ./ ./
 
-# build a fully standalone binary with zero dependencies
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o server .
 
 RUN apk add --no-cache curl
 
 
-
-# run server app
 FROM scratch
-
-# copy over SSL certificates, so that we can make HTTPS requests
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 COPY migrations migrations
 COPY --from=builder /workspace/server /server

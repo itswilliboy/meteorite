@@ -3,7 +3,8 @@ BEGIN;
 CREATE TABLE IF NOT EXISTS users(
     id SERIAL PRIMARY KEY,
     name TEXT UNIQUE,
-    created_at TIMESTAMP DEFAULT current_timestamp
+    created_at TIMESTAMP DEFAULT current_timestamp,
+    enabled BOOLEAN DEFAULT false
 );
 
 CREATE TABLE IF NOT EXISTS tokens(

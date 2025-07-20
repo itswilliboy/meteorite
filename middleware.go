@@ -17,14 +17,26 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		var id int
-		err := utils.DB.QueryRow(context.Background(), "SELECT user_id FROM tokens WHERE token = $1", auth).Scan(&id)
+		var enabled bool
+		err := utils.DB.QueryRow(context.Background(), `
+			SELECT u.id as user_id, u.enabled
+				FROM users u
+			JOIN tokens t ON u.id = t.user_id
+				WHERE t.token = $1
+		`, auth).Scan(&id, &enabled)
 
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				utils.WriteCodeError(w, http.StatusUnauthorized)
 				return
 			}
+
 			utils.InternalServerError(w, err)
+			return
+		}
+
+		if !enabled {
+			utils.WriteCodeError(w, http.StatusUnauthorized)
 			return
 		}
 

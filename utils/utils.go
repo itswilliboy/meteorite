@@ -80,11 +80,14 @@ func RunDBMigrations() {
 	})
 
 	for _, migration := range migrations {
-		file, err := os.ReadFile("./migrations/" + migration[1])
+		migrationId := migration[0]
+		migrationFile := migration[1]
+
+		file, err := os.ReadFile("./migrations/" + migrationFile)
 		CheckError(err)
 
 		var doesExist bool
-		DB.QueryRow(ctx, "SELECT exists(SELECT 1 FROM migrations WHERE id = $1)", migration[0]).Scan(&doesExist)
+		DB.QueryRow(ctx, "SELECT exists(SELECT 1 FROM migrations WHERE id = $1)", migrationId).Scan(&doesExist)
 		if doesExist {
 			continue
 		}
@@ -92,8 +95,8 @@ func RunDBMigrations() {
 		_, err = DB.Exec(ctx, string(file))
 		CheckError(err)
 
-		DB.Exec(ctx, string(file))
-		log.Println("Ran migration:", migration[1])
+		DB.Exec(ctx, "INSERT INTO migrations (id) VALUES ($1)", migrationId)
+		log.Println("Ran migration:", migrationFile)
 	}
 }
 
