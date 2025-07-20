@@ -2,6 +2,7 @@ services:
   backend:
     build:
       context: .
+      dockerfile: Dockerfile.dev
     ports:
       - 3000:3000
     restart: unless-stopped
@@ -13,7 +14,7 @@ services:
     develop:
       watch:
         - path: .
-          action: sync+restart
+          action: rebuild
           target: /app
           ignore:
             - ./.git

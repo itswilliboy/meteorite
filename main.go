@@ -1,77 +1,49 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
+	"fmt"
+	"img/routes"
+	"img/utils"
 	"io"
 	"log"
 	"net/http"
-	"os"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-	gonanoid "github.com/matoous/go-nanoid/v2"
+	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/chi/v5"
 )
 
-type JSONResponse struct {
-	Status  int
-	Message string
+func index(w http.ResponseWriter, r *http.Request) {
+	io.WriteString(w, "Bye, world.")
 }
 
-func check(err error) {
-	if err != nil {
-		panic(err)
-	}
+func uid(w http.ResponseWriter, r *http.Request) {
+	id, _ := r.Context().Value("userId").(int)
+	user := utils.GetUserByID(id)
+
+	io.WriteString(w, fmt.Sprintf("User ID: %d, username: %s", user.Id, user.Name))
 }
-
-func WriteJSONError(w http.ResponseWriter, code int, message string) {
-	resp := &JSONResponse{Status: code, Message: message}
-
-	json, err := json.Marshal(resp)
-
-	if err != nil {
-		io.WriteString(w, "Something went wrong.")
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-
-	io.Writer.Write(w, json)
-}
-
-func getConnectionPool() *pgxpool.Pool {
-	pool, err := pgxpool.New(context.Background(), os.Getenv("DATABASE_URL"))
-	check(err)
-
-	return pool
-}
-
-func Index(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "https://github.com/itswilliboy/images-go", http.StatusPermanentRedirect)
-}
-
-func getID() (string, error) {
-	chars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	id, err := gonanoid.Generate(chars, 10)
-
-	if err != nil {
-		return "", err
-	}
-
-	return id, nil
-}
-
-var Pool *pgxpool.Pool
 
 func main() {
-	Pool = getConnectionPool()
-	defer Pool.Close()
+	utils.DB = utils.GetDBConnectionPool()
+	utils.RunDBMigrations()
+	defer utils.DB.Close()
 
-	http.HandleFunc("/", Index)
-	http.HandleFunc("/upload", Upload)
-	http.HandleFunc("/{id}", Get)
+	r := chi.NewRouter()
+	r.Use(middleware.Logger)
+
+	// Public routes
+	r.Post("/register", routes.RegisterUser)
+	r.Get("/", index)
+
+	// Authenticated routes
+	r.With(AuthMiddleware).Get("/uid", uid)
+	r.With(AuthMiddleware).Post("/upload", routes.ImageUpload)
+
+	// Wildcard
+	r.Get("/{user}/{id}", routes.ImageGet)
+	r.Get("/{id}", routes.Test)
 
 	log.Println("Listening and serving on port 3000")
-	err := http.ListenAndServe(":3000", nil)
-
-	check(err)
+	err := http.ListenAndServe(":3000", r)
+	utils.CheckError(err)
 }

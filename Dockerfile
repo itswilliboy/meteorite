@@ -19,8 +19,9 @@ RUN apk add --no-cache curl
 FROM scratch
 
 # copy over SSL certificates, so that we can make HTTPS requests
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
+COPY migrations migrations
 COPY --from=builder /workspace/server /server
 
 EXPOSE 3000
