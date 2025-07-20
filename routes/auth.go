@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"img/utils"
 	"io"
 	"net/http"
@@ -40,8 +39,6 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 		"INSERT INTO users (name) VALUES ($1) RETURNING id, created_at",
 		payload.Username,
 	).Scan(&userId, &createdAt)
-
-	fmt.Println("new user:", userId, createdAt)
 
 	if err != nil {
 		var pgErr *pgconn.PgError
