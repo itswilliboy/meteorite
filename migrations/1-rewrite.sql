@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS users(
 );
 
 CREATE TABLE IF NOT EXISTS tokens(
-    user_id INT PRIMARY KEY REFERENCES users(id),
+    user_id INTEGER PRIMARY KEY REFERENCES users(id),
     token BYTEA NOT NULL
 );
 

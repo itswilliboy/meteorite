@@ -55,8 +55,8 @@ func RunDBMigrations() {
 
 	DB.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS migrations(
-			id INT,
-			ran_at TIMESTAMP DEFAULT NOW()
+			id INTEGER,
+			ran_at TIMESTAMP DEFAULT current_timestamp
 		);
 	`)
 
