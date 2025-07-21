@@ -31,8 +31,6 @@ services:
       interval: 1s
       timeout: 5s
       retries: 10
-    ports:
-      - 3001:5432
     volumes:
       - database:/var/lib/postgresql/data
 
