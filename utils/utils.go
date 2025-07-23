@@ -5,6 +5,7 @@ import (
 	b64 "encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -16,21 +17,22 @@ import (
 	gonanoid "github.com/matoous/go-nanoid/v2"
 )
 
-type JSONResponse struct {
+type JSONErrorResponse struct {
 	Status  int    `json:"status"`
 	Message string `json:"message"`
 }
 
 var DB *pgxpool.Pool
 var BASE_URL = os.Getenv("BASE_URL")
+var CtxUserID = struct{ id int }{id: 0}
 
-func WriteJSONError(w http.ResponseWriter, code int, message string) {
-	resp := &JSONResponse{Status: code, Message: message}
+func WriteJSONError(w http.ResponseWriter, Status int, Message string) {
+	resp := &JSONErrorResponse{Status, Message}
 
 	json, _ := json.Marshal(resp)
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
+	w.WriteHeader(Status)
 	w.Write(json)
 }
 
@@ -147,4 +149,42 @@ func CheckError(err error) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func ReadJSONBody[T any](writer http.ResponseWriter, body io.ReadCloser, maxSize int64) (T, error) {
+	body = http.MaxBytesReader(writer, body, maxSize)
+	decoder := json.NewDecoder(body)
+	decoder.DisallowUnknownFields()
+
+	var payload T
+	err := decoder.Decode(&payload)
+	if err != nil {
+		var zero T
+		if strings.HasPrefix(err.Error(), "json: unknown field") {
+			return zero, ErrUnknownJSONFields
+		}
+
+		return zero, err
+	}
+
+	return payload, nil
+}
+
+type JSONResponse struct {
+	Status int `json:"status"`
+	Data   any `json:"data"`
+}
+
+func WriteJSONBody(writer http.ResponseWriter, payload JSONResponse) error {
+	data, err := json.Marshal(payload)
+
+	if err != nil {
+		return err
+	}
+
+	writer.Write(data)
+	writer.Header().Add("Content-Type", "application/json")
+	writer.WriteHeader(payload.Status)
+
+	return nil
 }

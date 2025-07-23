@@ -3,6 +3,7 @@ package routes
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -12,6 +13,7 @@ import (
 	"img/utils"
 
 	"github.com/gabriel-vasile/mimetype"
+	"github.com/jackc/pgx/v5"
 )
 
 type imageUploadResponse struct {
@@ -19,8 +21,8 @@ type imageUploadResponse struct {
 }
 
 func ImageUpload(w http.ResponseWriter, r *http.Request) {
-
 	r.ParseMultipartForm(100 << 20)
+
 	file, _, err := r.FormFile("file")
 	if err != nil {
 		log.Printf("Error while retrieving file: %v\n", err)
@@ -42,7 +44,8 @@ func ImageUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mimetype := mimetype.Detect(data)
-	userId, _ := r.Context().Value("userId").(int)
+	userId, _ := r.Context().Value(utils.CtxUserID).(int)
+
 	_, err = utils.DB.Exec(context.Background(), "INSERT INTO images (id, image_data, mimetype, user_id) VALUES ($1, $2, $3, $4)", id, data, mimetype.String(), userId)
 	if err != nil {
 		utils.InternalServerError(w, err)
@@ -60,7 +63,7 @@ func ImageUpload(w http.ResponseWriter, r *http.Request) {
 }
 
 // /{id} --redirect--> /{user}/{id}
-func Test(w http.ResponseWriter, r *http.Request) {
+func ImageRedirect(w http.ResponseWriter, r *http.Request) {
 	filename := r.PathValue("id")
 
 	// EeZDFWheuD.png
@@ -72,21 +75,38 @@ func Test(w http.ResponseWriter, r *http.Request) {
 		utils.WriteCodeError(w, http.StatusNotFound)
 		return
 	}
-	user := utils.GetUserByID(userId)
+	user, err := utils.GetUserByID(userId)
+	if err != nil {
+		utils.InternalServerError(w, err)
+		return
+	}
 
 	http.Redirect(w, r, fmt.Sprintf("/%s/%s", user.Name, filename), http.StatusTemporaryRedirect)
 
 }
 
 func ImageGet(w http.ResponseWriter, r *http.Request) {
+	user := r.PathValue("user")
 	id := r.PathValue("id")
 	split := strings.Split(id, ".")
 
 	var imageData []byte
 	var mimetype string
-	err := utils.DB.QueryRow(context.Background(), "SELECT image_data, mimetype FROM images WHERE id = $1", split[0]).Scan(&imageData, &mimetype)
+	err := utils.DB.QueryRow(
+		context.Background(),
+		`SELECT image_data, mimetype FROM images i 
+		JOIN users u ON i.user_id = u.id 
+		WHERE i.id = $1 AND u.name = $2`,
+		split[0], user,
+	).Scan(&imageData, &mimetype)
+
 	if err != nil {
-		utils.WriteCodeError(w, http.StatusNotFound)
+		if errors.Is(err, pgx.ErrNoRows) {
+			utils.WriteCodeError(w, http.StatusNotFound)
+			return
+		}
+
+		utils.InternalServerError(w, err)
 		return
 	}
 

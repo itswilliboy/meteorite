@@ -1,0 +1,3 @@
+ALTER TABLE users ADD admin BOOLEAN DEFAULT false;
+
+ALTER TABLE users ADD password BYTEA NOT NULL;

@@ -1,26 +1,44 @@
 package main
 
 import (
-	"fmt"
 	"img/routes"
 	"img/utils"
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 )
 
-func index(w http.ResponseWriter, r *http.Request) {
-	io.WriteString(w, "Bye, world.")
-}
+// Handler for frontend
+func app() http.Handler {
+	r := chi.NewRouter()
 
-func uid(w http.ResponseWriter, r *http.Request) {
-	id, _ := r.Context().Value("userId").(int)
-	user := utils.GetUserByID(id)
+	r.Handle("/assets/*", http.StripPrefix("/app/assets/", http.FileServer(http.Dir("./assets"))))
+	r.Handle("/*", http.StripPrefix("/app/", http.FileServer(http.Dir("./public"))))
 
-	io.WriteString(w, fmt.Sprintf("User ID: %d, username: %s", user.Id, user.Name))
+	r.Get("/*", func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if path != "/app" {
+			path = strings.Replace(path, "/app", "", 1)
+		}
+
+		filePath := filepath.Join("./public", path)
+
+		if _, err := os.Stat(filePath); os.IsNotExist(err) || path == "/" {
+			http.ServeFile(w, r, "index.html")
+			return
+		}
+
+		http.ServeFile(w, r, filePath)
+	})
+
+	return r
+
 }
 
 func main() {
@@ -31,17 +49,24 @@ func main() {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 
-	// Public routes
-	r.Post("/register", routes.RegisterUser)
-	r.Get("/", index)
+	r.Get("/ping", func(w http.ResponseWriter, r *http.Request) { io.WriteString(w, "Pong!") })
+
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/app", http.StatusTemporaryRedirect)
+	})
+
+	r.Mount("/app", app())
+	r.Route("/api", func(r chi.Router) {
+		r.Post("/register", routes.RegisterUser)
+		r.Post("/login", routes.LoginUser)
+	})
 
 	// Authenticated routes
-	r.With(AuthMiddleware).Get("/uid", uid)
 	r.With(AuthMiddleware).Post("/upload", routes.ImageUpload)
 
-	// Wildcard
+	// Wildcards
 	r.Get("/{user}/{id}", routes.ImageGet)
-	r.Get("/{id}", routes.Test)
+	r.Get("/{id}", routes.ImageRedirect)
 
 	log.Println("Listening and serving on port 3000")
 	err := http.ListenAndServe(":3000", r)

@@ -8,9 +8,17 @@ import (
 	"net/http"
 )
 
+func checkAuth(headers http.Header) (auth string) {
+	auth = headers.Get("Authorisation")
+	if auth == "" {
+		auth = headers.Get("Authorization")
+	}
+	return
+}
+
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		auth := r.Header.Get("Authorisation")
+		auth := checkAuth(r.Header)
 		if auth == "" {
 			utils.WriteCodeError(w, http.StatusUnauthorized)
 			return
@@ -40,7 +48,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), "userId", id)
+		ctx := context.WithValue(r.Context(), utils.CtxUserID, id)
 		next.ServeHTTP(w, r.WithContext(ctx))
 
 	})
