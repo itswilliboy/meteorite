@@ -1,25 +1,15 @@
 <script setup lang="ts">
 import clsx from "clsx"
-import { useAttrs } from "vue"
 
 defineProps<{
   label: string
-  // placeholder?: string
   id?: string
   className?: string
-  // name?: string
-  // type?: string
-  // required?: boolean
-  // class?: string
 }>()
-
-console.log(useAttrs())
 </script>
 
 <template>
   <div>
-    <label :for="id" class="sr-only" v-if="label">{{ label }}</label>
-
     <input
       :id="id"
       v-bind="$attrs"

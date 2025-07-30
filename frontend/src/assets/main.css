@@ -1,12 +1,9 @@
 @import "tailwindcss";
 @import "@fontsource-variable/noto-sans";
-/* @import "flowbite/src/themes/default";
-@plugin "flowbite/plugin";
-@source "../../node_modules/flowbite"; */
 
 @theme {
   --default-font-family: "Noto Sans Variable", "sans-serif";
-  --background-colour: #f9fafb !default;
+  --background-colour: #f9fafb;
 }
 
 body {

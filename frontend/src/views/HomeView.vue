@@ -1,5 +1,5 @@
 <script setup lang="ts"></script>
 
 <template>
-  <div>Hello, world.</div>
+  <router-link to="/login">Hello, world.</router-link>
 </template>

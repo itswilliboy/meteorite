@@ -9,7 +9,7 @@ const login = async (e: Event) => {
 
   if (!auth.username || !auth.password) return
 
-  const resp = await ofetch("https://", { mode: "no-cors" })
+  const resp = await ofetch("/ping", { mode: "no-cors" })
   console.log(resp)
 }
 </script>
