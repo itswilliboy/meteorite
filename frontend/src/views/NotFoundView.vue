@@ -1,1 +1,3 @@
-<template>not found fuck you</template>
+<template>
+  <h1>404 not found, hmph..</h1>
+</template>

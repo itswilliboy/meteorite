@@ -6,6 +6,16 @@ const dashRoutes = [
     path: "home",
     name: "dashHome",
     component: () => import("@/views/dash/DashHomeView.vue")
+  },
+  {
+    path: "images",
+    name: "dashImages",
+    component: () => import("@/views/dash/DashImageView.vue")
+  },
+  {
+    path: "links",
+    name: "dashLinks",
+    component: () => import("@/views/dash/DashLinkView.vue")
   }
 ] satisfies RouteRecordRaw[]
 

@@ -59,6 +59,7 @@ func main() {
 	r.Route("/api", func(r chi.Router) {
 		r.Post("/register", routes.RegisterUser)
 		r.Post("/login", routes.LoginUser)
+		r.Get("/stats", routes.DashboardStatistics)
 	})
 
 	// Authenticated routes

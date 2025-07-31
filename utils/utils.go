@@ -182,9 +182,13 @@ func WriteJSONBody(writer http.ResponseWriter, payload JSONResponse) error {
 		return err
 	}
 
-	writer.Write(data)
 	writer.Header().Add("Content-Type", "application/json")
 	writer.WriteHeader(payload.Status)
+
+	_, err = writer.Write(data)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
