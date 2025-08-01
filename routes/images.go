@@ -5,19 +5,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"img/utils"
 	"io"
 	"log"
 	"net/http"
 	"strings"
-
-	"img/utils"
 
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/jackc/pgx/v5"
 )
 
 type imageUploadResponse struct {
-	Url string `json:"url"`
+	URL string `json:"url"`
 }
 
 func ImageUpload(w http.ResponseWriter, r *http.Request) {
@@ -44,45 +43,45 @@ func ImageUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mimetype := mimetype.Detect(data)
-	userId, _ := r.Context().Value(utils.CtxUserID).(int)
+	userID, _ := r.Context().Value(utils.CtxUserID).(int)
 
-	_, err = utils.DB.Exec(context.Background(), "INSERT INTO images (id, image_data, mimetype, user_id) VALUES ($1, $2, $3, $4)", id, data, mimetype.String(), userId)
+	_, err = utils.DB.Exec(context.Background(), "INSERT INTO images (id, image_data, mimetype, user_id) VALUES ($1, $2, $3, $4)", id, data, mimetype.String(), userID)
 	if err != nil {
 		utils.InternalServerError(w, err)
 		return
 	}
 
-	Url := fmt.Sprintf(`%s/%s%s`,
+	URL := fmt.Sprintf(`%s/%s%s`,
 		utils.BASE_URL,
 		id,
 		mimetype.Extension(),
 	)
 
-	json, _ := json.Marshal(&imageUploadResponse{Url})
+	json, _ := json.Marshal(&imageUploadResponse{URL})
 	w.Write(json)
 }
 
 // /{id} --redirect--> /{user}/{id}
+
 func ImageRedirect(w http.ResponseWriter, r *http.Request) {
 	filename := r.PathValue("id")
 
 	// EeZDFWheuD.png
-	imageId := strings.Split(filename, ".")[0]
+	imageID := strings.Split(filename, ".")[0]
 
-	var userId int
-	err := utils.DB.QueryRow(context.Background(), "SELECT user_id FROM images WHERE id = $1", imageId).Scan(&userId)
+	var userID int
+	err := utils.DB.QueryRow(context.Background(), "SELECT user_id FROM images WHERE id = $1", imageID).Scan(&userID)
 	if err != nil {
 		utils.WriteCodeError(w, http.StatusNotFound)
 		return
 	}
-	user, err := utils.GetUserByID(userId)
+	user, err := utils.GetUserByID(userID)
 	if err != nil {
 		utils.InternalServerError(w, err)
 		return
 	}
 
 	http.Redirect(w, r, fmt.Sprintf("/%s/%s", user.Name, filename), http.StatusTemporaryRedirect)
-
 }
 
 func ImageGet(w http.ResponseWriter, r *http.Request) {
@@ -99,7 +98,6 @@ func ImageGet(w http.ResponseWriter, r *http.Request) {
 		WHERE i.id = $1 AND u.name = $2`,
 		split[0], user,
 	).Scan(&imageData, &mimetype)
-
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			utils.WriteCodeError(w, http.StatusNotFound)

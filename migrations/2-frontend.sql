@@ -1,4 +1,6 @@
 ALTER TABLE users ADD admin BOOLEAN DEFAULT false;
 ALTER TABLE users ADD password BYTEA NOT NULL;
 
-ALTER TABLE images ADD views INTEGER NOT NULL; -- timestamp[]
+ALTER TABLE images ADD views INTEGER DEFAULT 0;
+ALTER TABLE images ALTER COLUMN date TYPE TIMESTAMP;
+ALTER TABLE images ALTER COLUMN date SET DEFAULT current_timestamp;

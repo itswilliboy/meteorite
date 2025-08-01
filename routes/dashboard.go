@@ -83,11 +83,14 @@ func DashboardStatistics(w http.ResponseWriter, r *http.Request) {
 	query := `
 		SELECT
 			COUNT(*),
-			SUM(octet_length(image_data))
+			SUM(octet_length(image_data)),
+			COUNT(*) FILTER (
+				WHERE date >= date_trunc('month', CURRENT_DATE)
+		)
 		FROM images i
 	`
 	var stats dashboardStatistics
-	err := utils.DB.QueryRow(context.Background(), query).Scan(&stats.TotalImages, &stats.StorageUsage)
+	err := utils.DB.QueryRow(context.Background(), query).Scan(&stats.TotalImages, &stats.StorageUsage, &stats.MonthlyUploads)
 	if err != nil {
 		utils.InternalServerError(w, err)
 		return
