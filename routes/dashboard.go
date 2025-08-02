@@ -5,6 +5,7 @@ import (
 	"errors"
 	"img/utils"
 	"net/http"
+	"strconv"
 
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -88,11 +89,11 @@ func DashboardStatistics(w http.ResponseWriter, r *http.Request) {
 	query := `
 		SELECT
 			COUNT(*),
-			SUM(octet_length(image_data)),
+			COALESCE(SUM(octet_length(COALESCE(image_data, ''))), 0),
 			COUNT(*) FILTER (
 				WHERE date >= date_trunc('month', CURRENT_DATE)
 			),
-			SUM(octet_length(image_data) * views)
+			COALESCE(SUM(COALESCE(octet_length(image_data), 0) * COALESCE(views, 0)), 0)
 		FROM images
 		WHERE user_id = $1
 	`
@@ -105,5 +106,40 @@ func DashboardStatistics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	p := utils.JSONResponse{Status: http.StatusOK, Data: stats}
+	utils.WriteJSONBody(w, p)
+}
+
+func ResetToken(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID, err := strconv.Atoi(ctx.Value(utils.CtxUserID).(string))
+	if err != nil {
+		utils.InternalServerError(w, err)
+		return
+	}
+
+	user, err := utils.GetUserByID(userID)
+	if err != nil {
+		utils.InternalServerError(w, err)
+		return
+	}
+
+	token, err := utils.CreateToken(user.ID)
+	if err != nil {
+		utils.InternalServerError(w, err)
+		return
+	}
+
+	_, err = utils.DB.Exec(ctx, `
+		INSERT INTO tokens (user_id, token) 
+			VALUES ($1, $2)
+		ON CONFLICT (user_id) 
+			DO UPDATE SET token = $2
+	`, user.ID, token)
+	if err != nil {
+		utils.InternalServerError(w, err)
+		return
+	}
+
+	p := utils.JSONResponse{Status: http.StatusOK, Data: token}
 	utils.WriteJSONBody(w, p)
 }

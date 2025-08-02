@@ -152,8 +152,8 @@ func CreateUser(name string, password string) (string, error) {
 	}
 
 	// default token
-	token, _ := CreateToken(user.ID, user.CreatedAt)
-	DB.Exec(ctx, "INSERT INTO tokens VALUES ($1, $2)", user.ID, []byte(token))
+	// token, _ := CreateToken(user.ID)
+	// DB.Exec(ctx, "INSERT INTO tokens VALUES ($1, $2)", user.ID, []byte(token))
 
 	return CreateSessionToken(user), nil
 }

@@ -1,9 +1,15 @@
 import { $fetch, type FetchOptions, type FetchRequest } from "ofetch"
 import { type Router } from "vue-router"
 
-type APIResponse<T> = {
+import type { APIResponse, DashboardStats } from "./type"
+
+export class HTTPException extends Error {
   status: number
-  data: T
+
+  constructor(status: number, message: APIResponse<any>) {
+    super(`HTTPException ${status}: ${message}`)
+    this.status = status
+  }
 }
 
 export class Client {
@@ -16,36 +22,29 @@ export class Client {
       ignoreResponseError: true
     })
 
-    // TODO: Maybe cleanup
-    const range = Math.floor(resp.status / 100)
-    switch (range) {
-      case 2:
-        return resp.data
-
-      case 4:
-        if (resp.status == 401) {
-          console.log(this.router.currentRoute)
-          if (this.router.currentRoute.value.name !== "login") {
-            localStorage.removeItem("token")
-            this.router.push("/login")
-          }
-          return resp.data
-        }
-
-        console.log("Error status 4xx", resp.status)
-
-      default:
-        console.log(console.log("Error status", resp.status))
+    if (resp.status >= 200 && resp.status < 300) {
+      return resp.data
     }
 
-    return resp.data
-  }
+    if (resp.status === 401) {
+      if (this.router.currentRoute.value.name !== "login") {
+        localStorage.removeItem("token")
+        this.router.push("/login")
+      }
+    }
 
-  async dashboardStats() {
-    return this.request<any>("/api/stats")
+    throw new HTTPException(resp.status, resp)
   }
 
   async login(username: string, password: string): Promise<string> {
     return this.request<string>("/api/login", { method: "POST", body: { username, password } })
+  }
+
+  async dashboardStats(): Promise<DashboardStats> {
+    return this.request<DashboardStats>("/api/stats")
+  }
+
+  async resetToken(): Promise<string> {
+    return this.request<string>("/api/reset-token", { method: "POST" })
   }
 }

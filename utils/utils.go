@@ -90,15 +90,13 @@ func RunDBMigrations() {
 
 		var doesExist bool
 		DB.QueryRow(ctx, "SELECT exists(SELECT 1 FROM migrations WHERE id = $1)", migrationId).Scan(&doesExist)
-		if doesExist {
-			continue
+		if !doesExist {
+			_, err = DB.Exec(ctx, string(file))
+			CheckError(err)
+
+			DB.Exec(ctx, "INSERT INTO migrations (id) VALUES ($1)", migrationId)
+			log.Println("Ran migration:", migrationFile)
 		}
-
-		_, err = DB.Exec(ctx, string(file))
-		CheckError(err)
-
-		DB.Exec(ctx, "INSERT INTO migrations (id) VALUES ($1)", migrationId)
-		log.Println("Ran migration:", migrationFile)
 	}
 }
 
@@ -126,12 +124,12 @@ func Base64EncodeNum(num int) string {
 	return b64.StdEncoding.EncodeToString(fmt.Appendf(nil, "%d", num))
 }
 
-func CreateToken(userId int, createdAt time.Time) (string, error) {
+func CreateToken(userId int) (string, error) {
 	// first part
 	encodedUserId := Base64EncodeNum(userId)
 
 	// second part
-	timestamp := createdAt.Unix()
+	timestamp := time.Now().Unix()
 	encodedTimestamp := Base64EncodeNum(int(timestamp))
 
 	// third part

@@ -1,18 +1,25 @@
 <script setup lang="ts">
+import { useRouter } from "vue-router"
+
 import InputBar from "@/components/InputBar.vue"
 import useClient from "@/composables/useClient"
-import { useRouter } from "vue-router"
 
 const router = useRouter()
 const client = useClient()
+
 const login = async (e: Event) => {
   const formData = new FormData(e.target as HTMLFormElement)
-  const auth = Object.fromEntries(formData.entries()) as { username: string; password: string }
+  const auth = Object.fromEntries((formData as any).entries())
 
   if (!auth.username || !auth.password) return
-  const token = await client.login(auth.username, auth.password)
-  localStorage.setItem("token", token)
-  router.push("/dash")
+
+  try {
+    const token = await client.login(auth.username, auth.password)
+    localStorage.setItem("token", token)
+    router.push("/dash")
+  } catch (err) {
+    alert("Invalid username or password")
+  }
 }
 </script>
 

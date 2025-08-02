@@ -4,10 +4,12 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - 3003:3000
+      - 3000:3000
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@database:5432/images
     depends_on:
       database:
         condition: service_healthy

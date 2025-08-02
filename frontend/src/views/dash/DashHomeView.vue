@@ -1,13 +1,17 @@
 <script setup lang="ts">
+import { onMounted, ref } from "vue"
+
 import PageContainer from "@/components/PageContainer.vue"
 import Card from "@/components/Card.vue"
-import { onMounted, ref } from "vue"
 import useClient from "@/composables/useClient"
 
-const data = ref<Option<any>>(null)
+import type { DashboardStats } from "@/utils/type"
+
+const data = ref<Option<DashboardStats>>(null)
 const loaded = ref<boolean>(false)
 
 const client = useClient()
+
 onMounted(async () => {
   data.value = await client.dashboardStats()
   loaded.value = true

@@ -43,8 +43,9 @@ func app() http.Handler {
 
 func main() {
 	utils.DB = utils.GetDBConnectionPool()
-	utils.RunDBMigrations()
 	defer utils.DB.Close()
+
+	utils.RunDBMigrations()
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -59,7 +60,9 @@ func main() {
 	r.Route("/api", func(r chi.Router) {
 		r.Post("/register", routes.RegisterUser)
 		r.Post("/login", routes.LoginUser)
+
 		r.With(DashAuthMiddleware).Get("/stats", routes.DashboardStatistics)
+		r.With(DashAuthMiddleware).Post("/reset-token", routes.ResetToken)
 	})
 
 	// Authenticated routes
