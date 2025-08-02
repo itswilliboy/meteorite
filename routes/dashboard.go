@@ -117,13 +117,7 @@ func ResetToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := utils.GetUserByID(userID)
-	if err != nil {
-		utils.InternalServerError(w, err)
-		return
-	}
-
-	token, err := utils.CreateToken(user.ID)
+	token, err := utils.CreateToken(userID)
 	if err != nil {
 		utils.InternalServerError(w, err)
 		return
@@ -134,7 +128,7 @@ func ResetToken(w http.ResponseWriter, r *http.Request) {
 			VALUES ($1, $2)
 		ON CONFLICT (user_id) 
 			DO UPDATE SET token = $2
-	`, user.ID, token)
+	`, userID, token)
 	if err != nil {
 		utils.InternalServerError(w, err)
 		return
