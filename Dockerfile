@@ -9,8 +9,6 @@ COPY ./ ./
 
 RUN CGO_ENABLED=0 GOOS=linux go build -installsuffix cgo -ldflags '-extldflags "-static"' -o server .
 
-RUN apk add --no-cache curl
-
 FROM oven/bun:1.2.19-alpine AS bun
 
 WORKDIR /frontend

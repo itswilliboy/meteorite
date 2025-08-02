@@ -4,3 +4,5 @@ declare module "*.vue" {
   const component: DefineComponent<{}, {}, any>
   export default component
 }
+
+type Option<T> = T | null

@@ -3,9 +3,11 @@ package utils
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"time"
 
+	"aidanwoods.dev/go-paseto"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -84,11 +86,49 @@ func GetToken(user User) (string, error) {
 	).Scan(&token)
 
 	if err != nil {
-		log.Println("error getting token", err)
 		return "", err
 	}
 
 	return string(token), nil
+}
+
+// this works but this would also mean that on restart the secret key changes
+// which would "invalidate" all the previous session prior to the restart.
+// this could also make it a fresh start :D
+var sk = paseto.NewV4AsymmetricSecretKey()
+var pk = sk.Public()
+
+func CreateSessionToken(user User) string {
+	token := paseto.NewToken()
+
+	token.SetIssuedAt(time.Now())
+	token.SetNotBefore(time.Now())
+
+	// 1 day login validty
+	token.SetExpiration(time.Now().Add(1 * 24 * time.Hour))
+
+	token.Set("user_id", fmt.Sprint(user.ID))
+
+	signed := token.V4Sign(sk, nil)
+
+	return signed
+}
+
+func VerifySessionToken(signed string) (string, error) {
+	parser := paseto.NewParser()
+	token, err := parser.ParseV4Public(pk, signed, nil)
+	if err != nil {
+		log.Println("could not parse token", err)
+		return "", err
+	}
+
+	userID, err := token.GetString("user_id")
+	if err != nil {
+		log.Println("could not set user id", err)
+		return "", err
+	}
+
+	return userID, nil
 }
 
 func CreateUser(name string, password string) (string, error) {
@@ -96,7 +136,6 @@ func CreateUser(name string, password string) (string, error) {
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		log.Println("error hashing password")
 		return "", err
 	}
 
@@ -109,14 +148,14 @@ func CreateUser(name string, password string) (string, error) {
 			return "", ErrUsernameAlreadyExists
 		}
 
-		log.Println("error scanning user")
 		return "", err
 	}
 
+	// default token
 	token, _ := CreateToken(user.ID, user.CreatedAt)
 	DB.Exec(ctx, "INSERT INTO tokens VALUES ($1, $2)", user.ID, []byte(token))
 
-	return token, nil
+	return CreateSessionToken(user), nil
 }
 
 func LoginUser(name string, password string) (User, error) {

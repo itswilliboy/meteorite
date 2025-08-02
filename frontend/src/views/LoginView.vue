@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import { ofetch } from "ofetch"
-
 import InputBar from "@/components/InputBar.vue"
+import useClient from "@/composables/useClient"
+import { useRouter } from "vue-router"
 
+const router = useRouter()
+const client = useClient()
 const login = async (e: Event) => {
   const formData = new FormData(e.target as HTMLFormElement)
-  const auth = Object.fromEntries(formData.entries())
+  const auth = Object.fromEntries(formData.entries()) as { username: string; password: string }
 
   if (!auth.username || !auth.password) return
-
-  const resp = await ofetch("/ping", { mode: "no-cors" })
-  console.log(resp)
+  const token = await client.login(auth.username, auth.password)
+  localStorage.setItem("token", token)
+  router.push("/dash")
 }
 </script>
 

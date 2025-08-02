@@ -93,9 +93,20 @@ func ImageGet(w http.ResponseWriter, r *http.Request) {
 	var mimetype string
 	err := utils.DB.QueryRow(
 		context.Background(),
-		`SELECT image_data, mimetype FROM images i 
-		JOIN users u ON i.user_id = u.id 
-		WHERE i.id = $1 AND u.name = $2`,
+		`
+		with updated AS (
+			UPDATE images
+			SET views = views + 1
+			WHERE id = $1
+			RETURNING image_data, mimetype, user_id
+		)
+		SELECT 
+			u.image_data,
+			u.mimetype
+		FROM updated u 
+		JOIN users ON u.user_id = users.id 
+			WHERE users.name = $2;
+		`,
 		split[0], user,
 	).Scan(&imageData, &mimetype)
 	if err != nil {

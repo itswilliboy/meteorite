@@ -53,3 +53,22 @@ func AuthMiddleware(next http.Handler) http.Handler {
 
 	})
 }
+
+func DashAuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token := checkAuth(r.Header)
+		if token == "" {
+			utils.WriteCodeError(w, http.StatusUnauthorized)
+			return
+		}
+
+		id, err := utils.VerifySessionToken(token)
+		if err != nil {
+			utils.WriteCodeError(w, http.StatusUnauthorized)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), utils.CtxUserID, id)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}

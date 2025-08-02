@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"img/utils"
-	"log"
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type userReceive struct {
@@ -34,7 +34,6 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		log.Println("error creating user")
 		utils.InternalServerError(w, err)
 		return
 	}
@@ -62,11 +61,16 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+			utils.WriteCodeError(w, http.StatusUnauthorized)
+			return
+		}
+
 		utils.InternalServerError(w, err)
 		return
 	}
 
-	token, _ := utils.GetToken(user)
+	token := utils.CreateSessionToken(user)
 
 	resp := utils.JSONResponse{Status: 200, Data: token}
 	utils.WriteJSONBody(w, resp)
@@ -80,17 +84,21 @@ type dashboardStatistics struct {
 }
 
 func DashboardStatistics(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(utils.CtxUserID)
 	query := `
 		SELECT
 			COUNT(*),
 			SUM(octet_length(image_data)),
 			COUNT(*) FILTER (
 				WHERE date >= date_trunc('month', CURRENT_DATE)
-		)
-		FROM images i
+			),
+			SUM(octet_length(image_data) * views)
+		FROM images
+		WHERE user_id = $1
 	`
+
 	var stats dashboardStatistics
-	err := utils.DB.QueryRow(context.Background(), query).Scan(&stats.TotalImages, &stats.StorageUsage, &stats.MonthlyUploads)
+	err := utils.DB.QueryRow(context.Background(), query, userID).Scan(&stats.TotalImages, &stats.StorageUsage, &stats.MonthlyUploads, &stats.UserBandwidth)
 	if err != nil {
 		utils.InternalServerError(w, err)
 		return

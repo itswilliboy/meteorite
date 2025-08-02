@@ -16,10 +16,15 @@ const dashRoutes = [
     path: "links",
     name: "dashLinks",
     component: () => import("@/views/dash/DashLinkView.vue")
+  },
+  {
+    path: "settings",
+    name: "dashSettings",
+    component: () => import("@/views/dash/DashSettingsView.vue")
   }
 ] satisfies RouteRecordRaw[]
 
-export default createRouter({
+const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
@@ -36,7 +41,32 @@ export default createRouter({
     {
       path: "/dash",
       redirect: "/dash/home",
+      name: "dash",
       children: dashRoutes
     }
   ]
 })
+
+router.beforeEach(async (to, _) => {
+  if (to.name == "home") {
+    return
+  }
+
+  const token = localStorage.getItem("token")
+  if (!token) {
+    if (to.name != "login") {
+      return { name: "login" }
+    }
+
+    return
+  }
+
+  // TDOD: check if token is valid
+  if (to.name == "login") {
+    return { name: "dash" }
+  }
+
+  return
+})
+
+export default router
