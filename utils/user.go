@@ -162,7 +162,7 @@ func LoginUser(name string, password string) (User, error) {
 	var id int
 	var pass []byte
 
-	err := DB.QueryRow(context.Background(), "SELECT id, password FROM users WHERE name = $1", name).Scan(&id, &pass)
+	err := DB.QueryRow(context.Background(), "SELECT id, password FROM users WHERE name = $1 AND enabled = true", name).Scan(&id, &pass)
 	if err != nil {
 		return User{}, err
 	}
