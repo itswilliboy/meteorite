@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"aidanwoods.dev/go-paseto"
@@ -98,20 +99,43 @@ func GetToken(user User) (string, error) {
 var sk = paseto.NewV4AsymmetricSecretKey()
 var pk = sk.Public()
 
-func CreateSessionToken(user User) string {
+func CreateSessionToken(user User, expiry time.Time) string {
 	token := paseto.NewToken()
 
 	token.SetIssuedAt(time.Now())
 	token.SetNotBefore(time.Now())
-
-	// 1 day login validty
-	token.SetExpiration(time.Now().Add(1 * 24 * time.Hour))
+	token.SetExpiration(expiry)
 
 	token.Set("user_id", fmt.Sprint(user.ID))
 
 	signed := token.V4Sign(sk, nil)
 
 	return signed
+}
+
+const DASH_COOKIE_NAME = "meteorite-cookie"
+
+func CreateDashSessionCookie(user User) http.Cookie {
+	// 1 day login validty
+	expiry := time.Now().Add(1 * 24 * time.Hour)
+	token := CreateSessionToken(user, expiry)
+
+	return http.Cookie{
+		Name:    DASH_COOKIE_NAME,
+		Value:   token,
+		Expires: expiry,
+		Path:    "/api",
+	}
+}
+
+// this is for cookie invalidation on the browser.
+func CreateInvalidDashSessionCookie() http.Cookie {
+	return http.Cookie{
+		Name:    DASH_COOKIE_NAME,
+		Value:   "",
+		Expires: time.Unix(0, 0),
+		Path:    "/api",
+	}
 }
 
 func VerifySessionToken(signed string) (string, error) {
@@ -131,12 +155,12 @@ func VerifySessionToken(signed string) (string, error) {
 	return userID, nil
 }
 
-func CreateUser(name string, password string) (string, error) {
+func CreateUser(name string, password string) (User, error) {
 	ctx := context.Background()
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return "", err
+		return User{}, err
 	}
 
 	row := DB.QueryRow(ctx, "INSERT INTO users (name, password) VALUES ($1, $2) RETURNING id, name, created_at, enabled, admin", name, hashedPassword)
@@ -145,17 +169,17 @@ func CreateUser(name string, password string) (string, error) {
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
-			return "", ErrUsernameAlreadyExists
+			return User{}, ErrUsernameAlreadyExists
 		}
 
-		return "", err
+		return User{}, err
 	}
 
 	// default token
 	// token, _ := CreateToken(user.ID)
 	// DB.Exec(ctx, "INSERT INTO tokens VALUES ($1, $2)", user.ID, []byte(token))
 
-	return CreateSessionToken(user), nil
+	return user, nil
 }
 
 func LoginUser(name string, password string) (User, error) {

@@ -47,26 +47,26 @@ const router = createRouter({
   ]
 })
 
-router.beforeEach(async (to, _) => {
-  if (to.name == "home") {
-    return
-  }
+// const client = useClient()
 
-  const token = localStorage.getItem("token")
-  if (!token) {
-    if (to.name != "login") {
-      return { name: "login" }
-    }
+// router.beforeEach(async (to, _) => {
+//   if (to.name == "home") {
+//     return
+//   }
 
-    return
-  }
+// try {
+//   await client.ping()
 
-  // TDOD: check if token is valid
-  if (to.name == "login") {
-    return { name: "dash" }
-  }
+//   if (to.name == "login") {
+//     return { name: "dash" }
+//   }
+// } catch {
+//   if (to.name != "login") {
+//     return { name: "login" }
+//   }
+// }
 
-  return
-})
+// return
+// })
 
 export default router

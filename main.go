@@ -61,6 +61,9 @@ func main() {
 		r.Post("/register", routes.RegisterUser)
 		r.Post("/login", routes.LoginUser)
 
+		r.With(DashAuthMiddleware).Post("/logout", routes.LogoutUser)
+
+		r.With(DashAuthMiddleware).Get("/ping", routes.DashboardPing)
 		r.With(DashAuthMiddleware).Get("/stats", routes.DashboardStatistics)
 		r.With(DashAuthMiddleware).Post("/reset-token", routes.ResetToken)
 	})

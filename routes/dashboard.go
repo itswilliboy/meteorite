@@ -28,7 +28,7 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := utils.CreateUser(payload.Username, payload.Password)
+	user, err := utils.CreateUser(payload.Username, payload.Password)
 	if err != nil {
 		if errors.Is(err, utils.ErrUsernameAlreadyExists) {
 			utils.WriteJSONError(w, http.StatusConflict, "Username already exists")
@@ -39,7 +39,10 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := utils.JSONResponse{Status: 200, Data: token}
+	cookie := utils.CreateDashSessionCookie(user)
+	http.SetCookie(w, &cookie)
+
+	resp := utils.JSONResponse{Status: 200, Data: "ok"}
 	utils.WriteJSONBody(w, resp)
 }
 
@@ -71,9 +74,10 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token := utils.CreateSessionToken(user)
+	cookie := utils.CreateDashSessionCookie(user)
+	http.SetCookie(w, &cookie)
 
-	resp := utils.JSONResponse{Status: 200, Data: token}
+	resp := utils.JSONResponse{Status: 200, Data: "ok"}
 	utils.WriteJSONBody(w, resp)
 }
 
@@ -109,6 +113,11 @@ func DashboardStatistics(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSONBody(w, p)
 }
 
+func DashboardPing(w http.ResponseWriter, r *http.Request) {
+	p := utils.JSONResponse{Status: http.StatusOK, Data: "pong"}
+	utils.WriteJSONBody(w, p)
+}
+
 func ResetToken(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	userID, err := strconv.Atoi(ctx.Value(utils.CtxUserID).(string))
@@ -136,4 +145,14 @@ func ResetToken(w http.ResponseWriter, r *http.Request) {
 
 	p := utils.JSONResponse{Status: http.StatusOK, Data: token}
 	utils.WriteJSONBody(w, p)
+}
+
+func LogoutUser(w http.ResponseWriter, r *http.Request) {
+	cookie := utils.CreateInvalidDashSessionCookie()
+	http.SetCookie(w, &cookie)
+
+	// TODO: perhaps logging?
+
+	resp := utils.JSONResponse{Status: 200, Data: "ok"}
+	utils.WriteJSONBody(w, resp)
 }

@@ -7,7 +7,7 @@ export class HTTPException extends Error {
   status: number
 
   constructor(status: number, message: APIResponse<any>) {
-    super(`HTTPException ${status}: ${message}`)
+    super(`HTTPException ${status}: ${message.data ?? message}`)
     this.status = status
   }
 }
@@ -18,7 +18,6 @@ export class Client {
   async request<T>(request: FetchRequest, options?: FetchOptions<"json">): Promise<T> {
     const resp = await $fetch<APIResponse<T>>(request, {
       ...options,
-      headers: { ...options?.headers, Authorisation: localStorage.getItem("token") || "" },
       ignoreResponseError: true
     })
 
@@ -28,7 +27,6 @@ export class Client {
 
     if (resp.status === 401) {
       if (this.router.currentRoute.value.name !== "login") {
-        localStorage.removeItem("token")
         this.router.push("/login")
       }
     }
@@ -38,6 +36,14 @@ export class Client {
 
   async login(username: string, password: string): Promise<string> {
     return this.request<string>("/api/login", { method: "POST", body: { username, password } })
+  }
+
+  async logout() {
+    return this.request("/api/logout", { method: "POST" })
+  }
+
+  async ping() {
+    return this.request("/api/ping")
   }
 
   async dashboardStats(): Promise<DashboardStats> {

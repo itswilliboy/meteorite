@@ -56,14 +56,17 @@ func AuthMiddleware(next http.Handler) http.Handler {
 
 func DashAuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token := checkAuth(r.Header)
-		if token == "" {
+		cookie, err := r.Cookie(utils.DASH_COOKIE_NAME)
+		if err != nil || cookie == nil {
 			utils.WriteCodeError(w, http.StatusUnauthorized)
 			return
 		}
 
-		id, err := utils.VerifySessionToken(token)
+		id, err := utils.VerifySessionToken(cookie.Value)
 		if err != nil {
+			cookie := utils.CreateInvalidDashSessionCookie()
+
+			http.SetCookie(w, &cookie)
 			utils.WriteCodeError(w, http.StatusUnauthorized)
 			return
 		}

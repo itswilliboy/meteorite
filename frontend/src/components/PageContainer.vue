@@ -1,7 +1,18 @@
 <script setup lang="ts">
 import clsx from "clsx"
-import { LayoutDashboard, Images, Link, Upload, Server, Settings } from "lucide-vue-next"
+import { LayoutDashboard, Images, Link, Upload, Server, Settings, LogOut } from "lucide-vue-next"
 import type { FunctionalComponent } from "vue"
+
+import { useRouter } from "vue-router"
+import useClient from "@/composables/useClient"
+
+const client = useClient()
+const router = useRouter()
+
+const logOut = async () => {
+  await client.logout()
+  router.push("/login")
+}
 
 type ButtonT = { name: string; to: string; icon: FunctionalComponent }
 
@@ -58,6 +69,10 @@ defineProps<{ title: string; className?: string }>()
           <router-link :to="item.to" v-for="item in lowerButtons">
             <component :is="item.icon" :size="24" />
           </router-link>
+
+          <div>
+            <LogOut :size="24" class="rotate-180 rounded-lg" @click="logOut" />
+          </div>
         </div>
       </nav>
     </aside>
@@ -82,11 +97,12 @@ defineProps<{ title: string; className?: string }>()
 .item {
   @apply flex flex-col;
 
-  a {
+  a,
+  div {
     @apply m-1 flex items-center justify-center rounded-xl p-2;
 
     &:hover {
-      @apply bg-black/3;
+      @apply cursor-pointer bg-black/3;
     }
   }
 }
