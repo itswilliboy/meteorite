@@ -66,6 +66,8 @@ func main() {
 		r.With(DashAuthMiddleware).Get("/ping", routes.DashboardPing)
 		r.With(DashAuthMiddleware).Get("/stats", routes.DashboardStatistics)
 		r.With(DashAuthMiddleware).Post("/reset-token", routes.ResetToken)
+
+		r.With(DashAuthAdminMiddleware).Get("/admin-stats", routes.AdminStatistics)
 	})
 
 	// Authenticated routes

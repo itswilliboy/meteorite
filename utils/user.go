@@ -16,11 +16,11 @@ import (
 )
 
 type User struct {
-	ID        int
-	Name      string
-	CreatedAt time.Time
-	Enabled   bool
-	Admin     bool
+	ID        int       `json:"id"`
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+	Enabled   bool      `json:"enabled"`
+	Admin     bool      `json:"admin"`
 }
 
 func (user *User) SetEnabled(enabled bool) error {

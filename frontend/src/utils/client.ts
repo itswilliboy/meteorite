@@ -1,7 +1,7 @@
 import { $fetch, type FetchOptions, type FetchRequest } from "ofetch"
 import { type Router } from "vue-router"
 
-import type { APIResponse, DashboardStats } from "./type"
+import type { APIResponse, DashboardStats, User } from "./type"
 
 export class HTTPException extends Error {
   status: number
@@ -34,8 +34,16 @@ export class Client {
     throw new HTTPException(resp.status, resp)
   }
 
-  async login(username: string, password: string): Promise<string> {
-    return this.request<string>("/api/login", { method: "POST", body: { username, password } })
+  async login(username: string, password: string): Promise<User> {
+    const resp = await this.request<Omit<User, "created_at"> & { created_at: string }>("/api/login", {
+      method: "POST",
+      body: { username, password }
+    })
+
+    return {
+      ...resp,
+      created_at: new Date(resp.created_at)
+    }
   }
 
   async logout() {

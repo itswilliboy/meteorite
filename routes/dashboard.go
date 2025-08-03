@@ -42,7 +42,7 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 	cookie := utils.CreateDashSessionCookie(user)
 	http.SetCookie(w, &cookie)
 
-	resp := utils.JSONResponse{Status: 200, Data: "ok"}
+	resp := utils.JSONResponse{Status: 200, Data: user}
 	utils.WriteJSONBody(w, resp)
 }
 
@@ -77,7 +77,7 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 	cookie := utils.CreateDashSessionCookie(user)
 	http.SetCookie(w, &cookie)
 
-	resp := utils.JSONResponse{Status: 200, Data: "ok"}
+	resp := utils.JSONResponse{Status: 200, Data: user}
 	utils.WriteJSONBody(w, resp)
 }
 
@@ -155,4 +155,22 @@ func LogoutUser(w http.ResponseWriter, r *http.Request) {
 
 	resp := utils.JSONResponse{Status: 200, Data: "ok"}
 	utils.WriteJSONBody(w, resp)
+}
+
+func AdminStatistics(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID, err := strconv.Atoi(ctx.Value(utils.CtxUserID).(string))
+	if err != nil {
+		utils.InternalServerError(w, err)
+		return
+	}
+
+	user, err := utils.GetUserByID(userID)
+	if err != nil {
+		utils.InternalServerError(w, err)
+		return
+	}
+
+	p := utils.JSONResponse{Status: http.StatusOK, Data: user}
+	utils.WriteJSONBody(w, p)
 }

@@ -70,8 +70,8 @@ defineProps<{ title: string; className?: string }>()
             <component :is="item.icon" :size="24" />
           </router-link>
 
-          <div>
-            <LogOut :size="24" class="rotate-180 rounded-lg" @click="logOut" />
+          <div @click="logOut">
+            <LogOut :size="24" class="rotate-180 rounded-lg" />
           </div>
         </div>
       </nav>

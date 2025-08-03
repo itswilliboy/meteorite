@@ -9,3 +9,11 @@ export type DashboardStats = {
   monthly_uploads: number
   user_bandwidth: number
 }
+
+export type User = {
+  id: number
+  name: string
+  created_at: Date
+  enabled: boolean
+  admin: boolean
+}

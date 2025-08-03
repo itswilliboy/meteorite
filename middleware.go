@@ -6,6 +6,7 @@ import (
 	"errors"
 	"img/utils"
 	"net/http"
+	"strconv"
 )
 
 func checkAuth(headers http.Header) (auth string) {
@@ -74,4 +75,22 @@ func DashAuthMiddleware(next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), utils.CtxUserID, id)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func DashAuthAdminMiddleware(next http.Handler) http.Handler {
+	return DashAuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		userID, err := strconv.Atoi(r.Context().Value(utils.CtxUserID).(string))
+		if err != nil {
+			utils.WriteCodeError(w, http.StatusInternalServerError)
+			return
+		}
+
+		user, err := utils.GetUserByID(userID)
+		if err != nil || !user.Admin {
+			utils.WriteCodeError(w, http.StatusForbidden)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	}))
 }
