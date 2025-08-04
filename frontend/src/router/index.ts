@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from "vue-router"
-import HomeView from "../views/HomeView.vue"
+// import HomeView from "../views/HomeView.vue"
 
 const dashRoutes = [
   {
@@ -35,7 +35,8 @@ const router = createRouter({
     {
       path: "/",
       name: "home",
-      component: HomeView
+      // component: HomeView
+      redirect: "/login"
     },
     {
       path: "/login",

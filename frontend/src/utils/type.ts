@@ -17,3 +17,11 @@ export type User = {
   enabled: boolean
   admin: boolean
 }
+
+export type Toast = {
+  id: number
+  title: string
+  desc?: string
+  colour: "info" | "success" | "warning" | "danger"
+  delay: number
+}
