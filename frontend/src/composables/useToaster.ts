@@ -4,15 +4,16 @@ import { reactive, readonly } from "vue"
 const toasts = reactive<Toast[]>([])
 let id = 0
 
-function push(toast: Omit<Toast, "id">) {
+function push(toast: Omit<Toast, "id" | "popped">) {
   const next = id++
-  toasts.push({ ...toast, id: next })
+  toasts.push({ ...toast, id: next, popped: false })
   if (toast.delay) setTimeout(() => pop(next), toast.delay)
 }
 
 function pop(id: number) {
-  const index = toasts.findIndex(t => t.id === id)
-  toasts.splice(index, 1)
+  const toast = toasts.find(t => t.id === id)
+  if (!toast || toast.popped) return
+  toasts.splice(toasts.indexOf(toast), 1)
 }
 
 export default function useToaster() {

@@ -24,4 +24,5 @@ export type Toast = {
   desc?: string
   colour: "info" | "success" | "warning" | "danger"
   delay: number
+  popped: boolean
 }
