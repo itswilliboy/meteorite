@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,9 +23,11 @@ type JSONErrorResponse struct {
 	Message string `json:"message"`
 }
 
-var DB *pgxpool.Pool
-var BASE_URL = os.Getenv("BASE_URL")
-var CtxUserID = struct{ id int }{id: 0}
+var (
+	DB        *pgxpool.Pool
+	BaseURL   = os.Getenv("BASE_URL")
+	CtxUserID = struct{ id int }{id: 0}
+)
 
 func WriteJSONError(w http.ResponseWriter, Status int, Message string) {
 	resp := &JSONErrorResponse{Status, Message}
@@ -82,19 +85,19 @@ func RunDBMigrations() {
 	})
 
 	for _, migration := range migrations {
-		migrationId := migration[0]
+		migrationID := migration[0]
 		migrationFile := migration[1]
 
 		file, err := os.ReadFile("./migrations/" + migrationFile)
 		CheckError(err)
 
 		var doesExist bool
-		DB.QueryRow(ctx, "SELECT exists(SELECT 1 FROM migrations WHERE id = $1)", migrationId).Scan(&doesExist)
+		DB.QueryRow(ctx, "SELECT exists(SELECT 1 FROM migrations WHERE id = $1)", migrationID).Scan(&doesExist)
 		if !doesExist {
 			_, err = DB.Exec(ctx, string(file))
 			CheckError(err)
 
-			DB.Exec(ctx, "INSERT INTO migrations (id) VALUES ($1)", migrationId)
+			DB.Exec(ctx, "INSERT INTO migrations (id) VALUES ($1)", migrationID)
 			log.Println("Ran migration:", migrationFile)
 		}
 	}
@@ -112,7 +115,6 @@ func GetID(length int, includeSymbols bool) (string, error) {
 	}
 
 	id, err := gonanoid.Generate(chars, 10)
-
 	if err != nil {
 		return "", err
 	}
@@ -126,7 +128,7 @@ func Base64EncodeNum(num int) string {
 
 func CreateToken(userId int) (string, error) {
 	// first part
-	encodedUserId := Base64EncodeNum(userId)
+	encodedUserID := Base64EncodeNum(userId)
 
 	// second part
 	timestamp := time.Now().Unix()
@@ -138,7 +140,7 @@ func CreateToken(userId int) (string, error) {
 		return "", err
 	}
 
-	token := fmt.Sprintf("%s.%s.%s", encodedUserId, encodedTimestamp, randHash)
+	token := fmt.Sprintf("%s.%s.%s", encodedUserID, encodedTimestamp, randHash)
 
 	return token, nil
 }
@@ -175,7 +177,6 @@ type JSONResponse struct {
 
 func WriteJSONBody(writer http.ResponseWriter, payload JSONResponse) error {
 	data, err := json.Marshal(payload)
-
 	if err != nil {
 		return err
 	}
@@ -189,4 +190,9 @@ func WriteJSONBody(writer http.ResponseWriter, payload JSONResponse) error {
 	}
 
 	return nil
+}
+
+func GetUserID(r *http.Request) int {
+	userID, _ := strconv.Atoi(r.Context().Value(CtxUserID).(string))
+	return userID
 }

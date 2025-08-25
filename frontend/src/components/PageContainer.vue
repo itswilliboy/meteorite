@@ -58,7 +58,7 @@ defineProps<{ title: string; className?: string }>()
 <template>
   <div class="flex">
     <aside>
-      <nav class="flex h-screen w-16 flex-col items-center justify-between bg-white py-10">
+      <nav class="sticky top-0 left-0 flex h-screen w-16 flex-col items-center justify-between bg-white py-10">
         <div class="item">
           <router-link :to="item.to" v-for="item in upperButtons">
             <component :is="item.icon" :size="24" />

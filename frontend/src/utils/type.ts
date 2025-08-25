@@ -18,6 +18,13 @@ export type User = {
   admin: boolean
 }
 
+export type Image = {
+  id: string
+  date: string
+  mimetype: string
+  url: string
+}
+
 export type Toast = {
   id: number
   title: string

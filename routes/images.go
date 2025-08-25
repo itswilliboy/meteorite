@@ -9,7 +9,9 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/jackc/pgx/v5"
@@ -52,7 +54,7 @@ func ImageUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	URL := fmt.Sprintf(`%s/%s%s`,
-		utils.BASE_URL,
+		utils.BaseURL,
 		id,
 		mimetype.Extension(),
 	)
@@ -94,17 +96,17 @@ func ImageGet(w http.ResponseWriter, r *http.Request) {
 	err := utils.DB.QueryRow(
 		context.Background(),
 		`
-		with updated AS (
+		WITH updated AS (
 			UPDATE images
 			SET views = views + 1
 			WHERE id = $1
 			RETURNING image_data, mimetype, user_id
 		)
-		SELECT 
+		SELECT
 			u.image_data,
 			u.mimetype
-		FROM updated u 
-		JOIN users ON u.user_id = users.id 
+		FROM updated u
+		JOIN users ON u.user_id = users.id
 			WHERE users.name = $2;
 		`,
 		split[0], user,
@@ -121,4 +123,72 @@ func ImageGet(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", mimetype)
 	w.Write(imageData)
+}
+
+type GetImagesResp struct {
+	ID       string `json:"id"`
+	Date     any    `json:"date"`
+	Mimetype string `json:"mimetype"`
+	URL      string `json:"url"`
+}
+
+func GetImages(w http.ResponseWriter, r *http.Request) {
+	userID, _ := strconv.Atoi(r.Context().Value(utils.CtxUserID).(string))
+
+	rows, err := utils.DB.Query(
+		context.Background(),
+		`
+			SELECT id, date, mimetype FROM images
+			WHERE user_id = $1
+			ORDER BY date DESC
+			LIMIT 25;
+		`,
+		userID,
+	)
+	if err != nil {
+		utils.InternalServerError(w, err)
+		return
+	}
+
+	var images []GetImagesResp
+	for rows.Next() {
+		var id string
+		var date time.Time
+		var mtype string
+		rows.Scan(&id, &date, &mtype)
+
+		resp := GetImagesResp{
+			ID:       id,
+			Date:     date,
+			Mimetype: mtype,
+			URL:      fmt.Sprintf("%s/%s%s", utils.BaseURL, id, mimetype.Lookup(mtype).Extension()),
+		}
+		images = append(images, resp)
+	}
+
+	utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusOK, Data: images})
+}
+
+func DeleteImage(w http.ResponseWriter, r *http.Request) {
+	userID := utils.GetUserID(r)
+	imageID := r.URL.Query().Get("id")
+
+	tag, err := utils.DB.Exec(
+		context.Background(),
+		`
+			DELETE FROM images
+			WHERE id = $1
+			AND user_id = $2
+		`,
+		imageID, userID,
+	)
+	if err != nil {
+		utils.InternalServerError(w, err)
+		return
+	}
+	if tag.RowsAffected() == 1 {
+		utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusOK})
+		return
+	}
+	utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusNotFound})
 }

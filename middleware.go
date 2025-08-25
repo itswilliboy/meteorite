@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"img/utils"
 	"net/http"
 	"strconv"
@@ -33,7 +34,6 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			JOIN tokens t ON u.id = t.user_id
 				WHERE t.token = $1
 		`, auth).Scan(&id, &enabled)
-
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				utils.WriteCodeError(w, http.StatusUnauthorized)
@@ -51,7 +51,6 @@ func AuthMiddleware(next http.Handler) http.Handler {
 
 		ctx := context.WithValue(r.Context(), utils.CtxUserID, id)
 		next.ServeHTTP(w, r.WithContext(ctx))
-
 	})
 }
 
@@ -64,6 +63,7 @@ func DashAuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		id, err := utils.VerifySessionToken(cookie.Value)
+		fmt.Println("middleware id", id)
 		if err != nil {
 			cookie := utils.CreateInvalidDashSessionCookie()
 

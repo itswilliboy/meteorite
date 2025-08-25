@@ -38,7 +38,6 @@ func app() http.Handler {
 	})
 
 	return r
-
 }
 
 func main() {
@@ -66,6 +65,9 @@ func main() {
 		r.With(DashAuthMiddleware).Get("/ping", routes.DashboardPing)
 		r.With(DashAuthMiddleware).Get("/stats", routes.DashboardStatistics)
 		r.With(DashAuthMiddleware).Post("/reset-token", routes.ResetToken)
+
+		r.With(DashAuthMiddleware).Get("/get-images", routes.GetImages)
+		r.With(DashAuthMiddleware).Post("/delete-image", routes.DeleteImage)
 
 		r.With(DashAuthAdminMiddleware).Get("/admin-stats", routes.AdminStatistics)
 	})

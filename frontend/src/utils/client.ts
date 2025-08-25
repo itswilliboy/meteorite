@@ -1,7 +1,7 @@
 import { $fetch, type FetchOptions, type FetchRequest } from "ofetch"
 import { type Router } from "vue-router"
 
-import type { APIResponse, DashboardStats, User } from "./type"
+import type { APIResponse, DashboardStats, Image, User } from "./type"
 
 export class HTTPException extends Error {
   status: number
@@ -60,5 +60,13 @@ export class Client {
 
   async resetToken(): Promise<string> {
     return this.request<string>("/api/reset-token", { method: "POST" })
+  }
+
+  async getImages(): Promise<Image[]> {
+    return this.request<Image[]>("/api/get-images")
+  }
+
+  async deleteImage(imageId: string): Promise<void> {
+    return this.request<void>("/api/delete-image", { query: { id: imageId }, method: "POST" })
   }
 }
