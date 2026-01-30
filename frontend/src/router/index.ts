@@ -53,26 +53,4 @@ const router = createRouter({
   ]
 })
 
-// const client = useClient()
-
-// router.beforeEach(async (to, _) => {
-//   if (to.name == "home") {
-//     return
-//   }
-
-// try {
-//   await client.ping()
-
-//   if (to.name == "login") {
-//     return { name: "dash" }
-//   }
-// } catch {
-//   if (to.name != "login") {
-//     return { name: "login" }
-//   }
-// }
-
-// return
-// })
-
 export default router

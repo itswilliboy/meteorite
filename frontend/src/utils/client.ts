@@ -1,12 +1,12 @@
 import { $fetch, type FetchOptions, type FetchRequest } from "ofetch"
 import { type Router } from "vue-router"
 
-import type { APIResponse, DashboardStats, Image, User } from "./type"
+import type { APIResponse, DashboardStats, Image, PaginatedResponse, User } from "./type"
 
 export class HTTPException extends Error {
   status: number
 
-  constructor(status: number, message: APIResponse<any>) {
+  constructor(status: number, message: APIResponse<unknown>) {
     super(`HTTPException ${status}: ${message.data ?? message}`)
     this.status = status
   }
@@ -21,9 +21,24 @@ export class Client {
       ignoreResponseError: true
     })
 
-    if (resp.status >= 200 && resp.status < 300) {
-      return resp.data
+    if (resp.status >= 200 && resp.status < 300) return resp.data
+
+    if (resp.status === 401) {
+      if (this.router.currentRoute.value.name !== "login") {
+        this.router.push("/login")
+      }
     }
+
+    throw new HTTPException(resp.status, resp)
+  }
+
+  async requestPaginated<T>(request: FetchRequest, options?: FetchOptions<"json">): Promise<PaginatedResponse<T>> {
+    const resp = await $fetch<PaginatedResponse<T>>(request, {
+      ...options,
+      ignoreResponseError: true
+    })
+
+    if (resp.status >= 200 && resp.status < 300) return resp
 
     if (resp.status === 401) {
       if (this.router.currentRoute.value.name !== "login") {
@@ -35,7 +50,7 @@ export class Client {
   }
 
   async login(username: string, password: string): Promise<User> {
-    const resp = await this.request<Omit<User, "created_at"> & { created_at: string }>("/api/login", {
+    const resp = await this.request<User>("/api/login", {
       method: "POST",
       body: { username, password }
     })
@@ -62,8 +77,8 @@ export class Client {
     return this.request<string>("/api/reset-token", { method: "POST" })
   }
 
-  async getImages(): Promise<Image[]> {
-    return this.request<Image[]>("/api/get-images")
+  async getImages(page: number = 0) {
+    return this.requestPaginated<Image[]>(`/api/get-images?page=${page}`)
   }
 
   async deleteImage(imageId: string): Promise<void> {

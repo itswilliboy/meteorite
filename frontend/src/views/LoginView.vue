@@ -7,7 +7,7 @@ import useClient from "@/composables/useClient"
 const router = useRouter()
 const client = useClient()
 
-const login = async (e: Event) => {
+const loginCallback = async (e: Event) => {
   const formData = new FormData(e.target as HTMLFormElement)
   const auth = Object.fromEntries((formData as any).entries())
 
@@ -17,7 +17,7 @@ const login = async (e: Event) => {
     const token = await client.login(auth.username, auth.password)
     localStorage.setItem("token", token)
     router.push("/dash")
-  } catch (err) {
+  } catch {
     alert("Invalid username or password")
   }
 }
@@ -33,7 +33,7 @@ const login = async (e: Event) => {
         <p class="mt-2 text-center text-sm text-gray-600">Sign in to your account</p>
       </section>
 
-      <form class="space-y-6" @submit.prevent="login">
+      <form class="space-y-6" @submit.prevent="loginCallback">
         <div class="rounded-md shadow-sm">
           <InputBar label="Username" name="username" type="text" required placeholder="gopher" className="rounded-t-md" />
 

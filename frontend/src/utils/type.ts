@@ -3,6 +3,15 @@ export type APIResponse<T> = {
   data: T
 }
 
+export type PaginatedResponse<T> = {
+  status: number
+  data: T
+  page: number
+  pageSize: number
+  hasNext: boolean
+  hasPrev: boolean
+}
+
 export type DashboardStats = {
   total_images: number
   storage_usage: number
@@ -22,14 +31,17 @@ export type Image = {
   id: string
   date: string
   mimetype: string
+  views: number
   url: string
 }
+
+export type Colour = "info" | "success" | "warning" | "danger"
 
 export type Toast = {
   id: number
   title: string
   desc?: string
-  colour: "info" | "success" | "warning" | "danger"
+  colour: Colour
   delay: number
   popped: boolean
 }

@@ -173,6 +173,11 @@ func ReadJSONBody[T any](writer http.ResponseWriter, body io.ReadCloser, maxSize
 type JSONResponse struct {
 	Status int `json:"status"`
 	Data   any `json:"data"`
+
+	Page     int  `json:"page,omitempty"`
+	PageSize int  `json:"pageSize,omitempty"`
+	HasNext  bool `json:"hasNext,omitempty"`
+	HasPrev  bool `json:"hasPrev,omitempty"`
 }
 
 func WriteJSONBody(writer http.ResponseWriter, payload JSONResponse) error {

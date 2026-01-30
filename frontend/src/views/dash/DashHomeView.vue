@@ -7,14 +7,12 @@ import useClient from "@/composables/useClient"
 
 import type { DashboardStats } from "@/utils/type"
 
-const data = ref<Option<DashboardStats>>(null)
-const loaded = ref<boolean>(false)
-
 const client = useClient()
+
+const data = ref<Option<DashboardStats>>(null)
 
 onMounted(async () => {
   data.value = await client.dashboardStats()
-  loaded.value = true
 })
 
 const formatBytesToMebibytes = (bytes: number): string => {
@@ -28,24 +26,24 @@ const formatBytesToMebibytes = (bytes: number): string => {
     <section class="flex w-full gap-3">
       <Card class="leading-none">
         <span class="text-sm font-semibold text-gray-500">Total Images</span>
-        <h1 class="text-2xl font-bold">{{ loaded ? data?.total_images : "Loading..." }}</h1>
+        <h1 class="text-2xl font-bold">{{ data ? data?.total_images : "Loading..." }}</h1>
       </Card>
 
       <Card class="leading-none">
         <span class="text-xs font-semibold text-gray-500">Monthly Uploads</span>
-        <h1 class="text-2xl font-bold">{{ loaded ? data?.monthly_uploads : "Loading..." }}</h1>
+        <h1 class="text-2xl font-bold">{{ data ? data?.monthly_uploads : "Loading..." }}</h1>
       </Card>
 
       <Card class="leading-none">
         <span class="text-xs font-semibold text-gray-500">Storage Used</span>
         <h1 class="text-2xl font-bold">
-          {{ loaded ? formatBytesToMebibytes(data?.storage_usage!) : "Loading..." }}
+          {{ data ? formatBytesToMebibytes(data?.storage_usage!) : "Loading..." }}
         </h1>
       </Card>
 
       <Card class="leading-none">
         <span class="text-xs font-semibold text-gray-500">Bandwidth</span>
-        <h1 class="text-2xl font-bold">{{ loaded ? formatBytesToMebibytes(data?.user_bandwidth!) : "Loading..." }}</h1>
+        <h1 class="text-2xl font-bold">{{ data ? formatBytesToMebibytes(data?.user_bandwidth!) : "Loading..." }}</h1>
       </Card>
     </section>
 

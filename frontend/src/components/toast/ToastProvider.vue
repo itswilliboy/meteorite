@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { TransitionGroup } from "vue"
 import Toast from "./Toast.vue"
 import useToaster from "@/composables/useToaster"
 
@@ -7,7 +6,7 @@ const { toasts, pop } = useToaster()
 </script>
 
 <template>
-  <TransitionGroup name="list" tag="div" class="absolute top-4 right-4 flex flex-col gap-2">
+  <TransitionGroup name="list" tag="div" class="absolute top-4 right-4 z-[999] flex flex-col gap-2">
     <Toast v-for="toast in toasts" :toast="toast" :key="toast.id" @dismiss="id => pop(id)" />
   </TransitionGroup>
   <slot />

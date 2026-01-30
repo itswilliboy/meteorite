@@ -60,13 +60,13 @@ defineProps<{ title: string; className?: string }>()
     <aside>
       <nav class="sticky top-0 left-0 flex h-screen w-16 flex-col items-center justify-between bg-white py-10">
         <div class="item">
-          <router-link :to="item.to" v-for="item in upperButtons">
+          <router-link :to="item.to" v-for="item in upperButtons" :key="item.to">
             <component :is="item.icon" :size="24" />
           </router-link>
         </div>
 
         <div class="item">
-          <router-link :to="item.to" v-for="item in lowerButtons">
+          <router-link :to="item.to" v-for="item in lowerButtons" :key="item.to">
             <component :is="item.icon" :size="24" />
           </router-link>
 

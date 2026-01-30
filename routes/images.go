@@ -70,6 +70,7 @@ func ImageRedirect(w http.ResponseWriter, r *http.Request) {
 
 	// EeZDFWheuD.png
 	imageID := strings.Split(filename, ".")[0]
+	isDashboard := (r.URL.Query().Get("d") == "true")
 
 	var userID int
 	err := utils.DB.QueryRow(context.Background(), "SELECT user_id FROM images WHERE id = $1", imageID).Scan(&userID)
@@ -83,13 +84,19 @@ func ImageRedirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, fmt.Sprintf("/%s/%s", user.Name, filename), http.StatusTemporaryRedirect)
+	format := "/%s/%s"
+	if isDashboard {
+		format += "?d=true"
+	}
+	http.Redirect(w, r, fmt.Sprintf(format, user.Name, filename), http.StatusTemporaryRedirect)
 }
 
 func ImageGet(w http.ResponseWriter, r *http.Request) {
 	user := r.PathValue("user")
 	id := r.PathValue("id")
 	split := strings.Split(id, ".")
+
+	isDashboard := (r.URL.Query().Get("d") == "true")
 
 	var imageData []byte
 	var mimetype string
@@ -98,7 +105,7 @@ func ImageGet(w http.ResponseWriter, r *http.Request) {
 		`
 		WITH updated AS (
 			UPDATE images
-			SET views = views + 1
+			SET views = views + CASE WHEN $3 = false THEN 1 ELSE 0 END
 			WHERE id = $1
 			RETURNING image_data, mimetype, user_id
 		)
@@ -109,7 +116,7 @@ func ImageGet(w http.ResponseWriter, r *http.Request) {
 		JOIN users ON u.user_id = users.id
 			WHERE users.name = $2;
 		`,
-		split[0], user,
+		split[0], user, isDashboard,
 	).Scan(&imageData, &mimetype)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -122,6 +129,7 @@ func ImageGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", mimetype)
+	w.Header().Set("Cache-Control", "public, max-age=3600")
 	w.Write(imageData)
 }
 
@@ -129,44 +137,75 @@ type GetImagesResp struct {
 	ID       string `json:"id"`
 	Date     any    `json:"date"`
 	Mimetype string `json:"mimetype"`
+	Views    int    `json:"views"`
 	URL      string `json:"url"`
 }
 
 func GetImages(w http.ResponseWriter, r *http.Request) {
 	userID, _ := strconv.Atoi(r.Context().Value(utils.CtxUserID).(string))
 
+	page, err := strconv.Atoi(r.URL.Query().Get("page"))
+	if err != nil {
+		page = 0
+	}
+
+	const pageSize = 24
+	offset := page * pageSize
+
 	rows, err := utils.DB.Query(
 		context.Background(),
 		`
-			SELECT id, date, mimetype FROM images
+			SELECT id, date, mimetype, views 
+			FROM images
 			WHERE user_id = $1
 			ORDER BY date DESC
-			LIMIT 25;
+			OFFSET ($2)
+			LIMIT $3;
 		`,
-		userID,
+		userID, offset, pageSize+1,
 	)
 	if err != nil {
 		utils.InternalServerError(w, err)
 		return
 	}
+	defer rows.Close()
 
-	var images []GetImagesResp
+	images := make([]GetImagesResp, 0, pageSize+1)
 	for rows.Next() {
-		var id string
+		var img GetImagesResp
 		var date time.Time
-		var mtype string
-		rows.Scan(&id, &date, &mtype)
 
-		resp := GetImagesResp{
-			ID:       id,
-			Date:     date,
-			Mimetype: mtype,
-			URL:      fmt.Sprintf("%s/%s%s", utils.BaseURL, id, mimetype.Lookup(mtype).Extension()),
+		if err := rows.Scan(&img.ID, &date, &img.Mimetype, &img.Views); err != nil {
+			utils.InternalServerError(w, err)
+			return
 		}
-		images = append(images, resp)
+
+		img.Date = date
+		img.URL = fmt.Sprintf("%s/%s%s", utils.BaseURL, img.ID, mimetype.Lookup(img.Mimetype).Extension())
+		images = append(images, img)
 	}
 
-	utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusOK, Data: images})
+	if err := rows.Err(); err != nil {
+		utils.InternalServerError(w, err)
+		return
+	}
+
+	hasNext := len(images) > pageSize
+	hasPrev := page > 0
+
+	if hasNext {
+		images = images[:pageSize]
+	}
+
+	// utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusOK, Data: })
+	utils.WriteJSONBody(w, utils.JSONResponse{
+		Status:   http.StatusOK,
+		Data:     images,
+		Page:     page,
+		PageSize: pageSize,
+		HasNext:  hasNext,
+		HasPrev:  hasPrev,
+	})
 }
 
 func DeleteImage(w http.ResponseWriter, r *http.Request) {

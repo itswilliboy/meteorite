@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"img/utils"
 	"net/http"
 	"strconv"
@@ -63,7 +62,6 @@ func DashAuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		id, err := utils.VerifySessionToken(cookie.Value)
-		fmt.Println("middleware id", id)
 		if err != nil {
 			cookie := utils.CreateInvalidDashSessionCookie()
 

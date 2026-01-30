@@ -11,6 +11,7 @@ import useToaster from "@/composables/useToaster"
 
 const client = useClient()
 const { push } = useToaster()
+
 const token = ref<Option<string>>(null)
 
 const copyToClipboard = () => {
@@ -20,7 +21,7 @@ const copyToClipboard = () => {
   }
 }
 
-const resetToken = async () => {
+const resetTokenCallback = async () => {
   const newToken = await client.resetToken()
   token.value = newToken
 }
@@ -39,7 +40,7 @@ const resetToken = async () => {
             :value="token ?? '***************'" />
 
           <div class="absolute inset-y-0 right-0 flex h-full">
-            <button class="bg-danger h-full px-3 text-white hover:cursor-pointer" @click="resetToken">
+            <button class="bg-danger h-full px-3 text-white hover:cursor-pointer" @click="resetTokenCallback">
               <RefreshCw width="15" height="15" />
             </button>
 

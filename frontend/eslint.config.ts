@@ -18,5 +18,11 @@ export default defineConfigWithVueTs(
 
   pluginVue.configs["flat/essential"],
   vueTsConfigs.recommended,
-  skipFormatting
+  skipFormatting,
+  {
+    rules: {
+      "vue/multi-word-component-names": "off",
+      "@typescript-eslint/no-explicit-any": "off"
+    }
+  }
 )

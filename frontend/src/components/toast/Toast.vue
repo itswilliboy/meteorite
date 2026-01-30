@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { Toast } from "@/utils/type.ts"
-import { defineProps } from "vue"
 import { X } from "lucide-vue-next"
 
 const { toast } = defineProps<{ toast: Toast }>()
