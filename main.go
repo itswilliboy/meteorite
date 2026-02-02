@@ -74,6 +74,7 @@ func main() {
 
 	// Authenticated routes
 	r.With(AuthMiddleware).Post("/upload", routes.ImageUpload)
+	r.With(AuthMiddleware).Post("/set-password", routes.ChangePassword)
 
 	// Wildcards
 	r.Get("/{user}/{id}", routes.ImageGet)

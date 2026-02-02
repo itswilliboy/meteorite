@@ -16,6 +16,10 @@ type userReceive struct {
 	Password string `json:"password"`
 }
 
+type changePasswordReceive struct {
+	Password string `json:"password"`
+}
+
 func RegisterUser(w http.ResponseWriter, r *http.Request) {
 	payload, err := utils.ReadJSONBody[*userReceive](w, r.Body, 1<<20)
 	if err != nil {
@@ -43,6 +47,31 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &cookie)
 
 	resp := utils.JSONResponse{Status: 200, Data: user}
+	utils.WriteJSONBody(w, resp)
+}
+
+func ChangePassword(w http.ResponseWriter, r *http.Request) {
+	payload, err := utils.ReadJSONBody[*changePasswordReceive](w, r.Body, 1<<20)
+	if err != nil {
+		if errors.Is(err, utils.ErrUnknownJSONFields) {
+			utils.WriteJSONError(w, http.StatusBadRequest, "Unknown JSON fields.")
+			return
+		}
+
+		utils.InternalServerError(w, err)
+		return
+	}
+
+	userID := r.Context().Value(utils.CtxUserID)
+	user, err := utils.GetUserByID(userID.(int))
+	if err != nil {
+		utils.InternalServerError(w, err)
+		return
+	}
+
+	user.SetPassword(payload.Password)
+
+	resp := utils.JSONResponse{Status: 200, Data: "ok"}
 	utils.WriteJSONBody(w, resp)
 }
 

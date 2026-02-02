@@ -42,6 +42,20 @@ func (user *User) SetAdmin(enabled bool) error {
 	return nil
 }
 
+func (user *User) SetPassword(password string) error {
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	_, err = DB.Exec(context.Background(), "UPDATE users SET password = $1 where id = $2", hashedPassword, user.ID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func scanUserRow(row pgx.Row) (User, error) {
 	var u User
 	if err := row.Scan(&u.ID, &u.Name, &u.CreatedAt, &u.Enabled, &u.Admin); err != nil {
