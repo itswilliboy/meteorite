@@ -48,7 +48,7 @@ const deleteImage = () => {
       @delete="confirmOpen = true"
       class="pointer-events-none absolute top-2 right-2 z-10 opacity-0 transition-opacity duration-200 group-hover:pointer-events-auto group-hover:opacity-100" />
     <div @click="imageOpen = true" class="cursor-pointer transition-all duration-200 hover:brightness-75">
-      <ImageOrVideo :image="image" />
+      <ImageOrVideo :image="image" :thumbnail="true" />
     </div>
     <div class="bg-background absolute bottom-0 flex min-h-12 w-full justify-between p-1">
       <a :href="image.url" class="text-xl font-semibold hover:underline" target="_blank">{{ image.id }}</a>

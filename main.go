@@ -12,6 +12,10 @@ import (
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
+
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 )
 
 // Handler for frontend
@@ -60,21 +64,29 @@ func main() {
 		r.Post("/register", routes.RegisterUser)
 		r.Post("/login", routes.LoginUser)
 
-		r.With(DashAuthMiddleware).Post("/logout", routes.LogoutUser)
+		r.Group(func(r chi.Router) {
+			r.Use(DashAuthMiddleware)
 
-		r.With(DashAuthMiddleware).Get("/ping", routes.DashboardPing)
-		r.With(DashAuthMiddleware).Get("/stats", routes.DashboardStatistics)
-		r.With(DashAuthMiddleware).Post("/reset-token", routes.ResetToken)
+			r.Post("/logout", routes.LogoutUser)
+			r.Post("/reset-token", routes.ResetToken)
 
-		r.With(DashAuthMiddleware).Get("/get-images", routes.GetImages)
-		r.With(DashAuthMiddleware).Post("/delete-image", routes.DeleteImage)
+			r.Get("/ping", routes.DashboardPing)
+			r.Get("/stats", routes.DashboardStatistics)
+
+			r.Get("/get-images", routes.GetImages)
+			r.Post("/delete-image", routes.DeleteImage)
+		})
 
 		r.With(DashAuthAdminMiddleware).Get("/admin-stats", routes.AdminStatistics)
 	})
 
 	// Authenticated routes
-	r.With(AuthMiddleware).Post("/upload", routes.ImageUpload)
-	r.With(AuthMiddleware).Post("/set-password", routes.ChangePassword)
+	r.Group(func(r chi.Router) {
+		r.Use(AuthMiddleware)
+
+		r.Post("/upload", routes.ImageUpload)
+		r.Post("/set-password", routes.ChangePassword)
+	})
 
 	// Wildcards
 	r.Get("/{user}/{id}", routes.ImageGet)

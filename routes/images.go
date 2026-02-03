@@ -1,10 +1,13 @@
 package routes
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image/jpeg"
+	"image/png"
 	"img/utils"
 	"io"
 	"log"
@@ -70,7 +73,6 @@ func ImageRedirect(w http.ResponseWriter, r *http.Request) {
 
 	// EeZDFWheuD.png
 	imageID := strings.Split(filename, ".")[0]
-	isDashboard := (r.URL.Query().Get("d") == "true")
 
 	var userID int
 	err := utils.DB.QueryRow(context.Background(), "SELECT user_id FROM images WHERE id = $1", imageID).Scan(&userID)
@@ -84,11 +86,14 @@ func ImageRedirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	format := "/%s/%s"
-	if isDashboard {
-		format += "?d=true"
+	redirectURL := fmt.Sprintf("/%s/%s", user.Name, filename)
+	queryParams := r.URL.Query()
+
+	if len(queryParams) > 0 {
+		redirectURL += "?" + queryParams.Encode()
 	}
-	http.Redirect(w, r, fmt.Sprintf(format, user.Name, filename), http.StatusTemporaryRedirect)
+
+	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 }
 
 func ImageGet(w http.ResponseWriter, r *http.Request) {
@@ -128,7 +133,35 @@ func ImageGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", mimetype)
+	width := r.URL.Query().Get("width")
+
+	if width != "" {
+		img, err := utils.ResizeImage(imageData, width)
+		if err != nil {
+			utils.InternalServerError(w, err)
+			return
+		}
+
+		var out bytes.Buffer
+
+		if utils.HasAlpha(img) {
+			w.Header().Set("Content-Type", "image/png")
+			err = png.Encode(&out, img)
+		} else {
+			w.Header().Set("Content-Type", "image/jpeg")
+			err = jpeg.Encode(&out, img, &jpeg.Options{Quality: 60})
+		}
+
+		if err != nil {
+			utils.InternalServerError(w, err)
+			return
+		}
+
+		imageData = out.Bytes()
+	} else {
+		w.Header().Set("Content-Type", mimetype)
+	}
+
 	w.Header().Set("Cache-Control", "public, max-age=3600")
 	w.Write(imageData)
 }
