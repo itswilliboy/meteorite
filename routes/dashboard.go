@@ -1,7 +1,6 @@
 package routes
 
 import (
-	"context"
 	"errors"
 	"img/utils"
 	"net/http"
@@ -132,7 +131,7 @@ func DashboardStatistics(w http.ResponseWriter, r *http.Request) {
 	`
 
 	var stats dashboardStatistics
-	err := utils.DB.QueryRow(context.Background(), query, userID).Scan(&stats.TotalImages, &stats.StorageUsage, &stats.MonthlyUploads, &stats.UserBandwidth)
+	err := utils.DB.QueryRow(r.Context(), query, userID).Scan(&stats.TotalImages, &stats.StorageUsage, &stats.MonthlyUploads, &stats.UserBandwidth)
 	if err != nil {
 		utils.InternalServerError(w, err)
 		return

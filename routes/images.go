@@ -2,7 +2,6 @@ package routes
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -50,7 +49,7 @@ func ImageUpload(w http.ResponseWriter, r *http.Request) {
 	mimetype := mimetype.Detect(data)
 	userID, _ := r.Context().Value(utils.CtxUserID).(int)
 
-	_, err = utils.DB.Exec(context.Background(), "INSERT INTO images (id, image_data, mimetype, user_id) VALUES ($1, $2, $3, $4)", id, data, mimetype.String(), userID)
+	_, err = utils.DB.Exec(r.Context(), "INSERT INTO images (id, image_data, mimetype, user_id) VALUES ($1, $2, $3, $4)", id, data, mimetype.String(), userID)
 	if err != nil {
 		utils.InternalServerError(w, err)
 		return
@@ -75,7 +74,7 @@ func ImageRedirect(w http.ResponseWriter, r *http.Request) {
 	imageID := strings.Split(filename, ".")[0]
 
 	var userID int
-	err := utils.DB.QueryRow(context.Background(), "SELECT user_id FROM images WHERE id = $1", imageID).Scan(&userID)
+	err := utils.DB.QueryRow(r.Context(), "SELECT user_id FROM images WHERE id = $1", imageID).Scan(&userID)
 	if err != nil {
 		utils.WriteCodeError(w, http.StatusNotFound)
 		return
@@ -106,7 +105,7 @@ func ImageGet(w http.ResponseWriter, r *http.Request) {
 	var imageData []byte
 	var mimetype string
 	err := utils.DB.QueryRow(
-		context.Background(),
+		r.Context(),
 		`
 		WITH updated AS (
 			UPDATE images
@@ -186,7 +185,7 @@ func GetImages(w http.ResponseWriter, r *http.Request) {
 	offset := page * pageSize
 
 	rows, err := utils.DB.Query(
-		context.Background(),
+		r.Context(),
 		`
 			SELECT id, date, mimetype, views 
 			FROM images
@@ -246,7 +245,7 @@ func DeleteImage(w http.ResponseWriter, r *http.Request) {
 	imageID := r.URL.Query().Get("id")
 
 	tag, err := utils.DB.Exec(
-		context.Background(),
+		r.Context(),
 		`
 			DELETE FROM images
 			WHERE id = $1
