@@ -14,8 +14,8 @@ const loginCallback = async (e: Event) => {
   if (!auth.username || !auth.password) return
 
   try {
-    const token = await client.login(auth.username, auth.password)
-    localStorage.setItem("token", token)
+    const user = await client.login(auth.username, auth.password)
+    localStorage.setItem("user", JSON.stringify(user))
     router.push("/dash")
   } catch {
     alert("Invalid username or password")

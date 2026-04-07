@@ -61,11 +61,16 @@ func DashAuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		id, err := utils.VerifySessionToken(cookie.Value)
+		idStr, err := utils.VerifySessionToken(cookie.Value)
 		if err != nil {
 			cookie := utils.CreateInvalidDashSessionCookie()
-
 			http.SetCookie(w, &cookie)
+			utils.WriteCodeError(w, http.StatusUnauthorized)
+			return
+		}
+
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
 			utils.WriteCodeError(w, http.StatusUnauthorized)
 			return
 		}
@@ -77,13 +82,7 @@ func DashAuthMiddleware(next http.Handler) http.Handler {
 
 func DashAuthAdminMiddleware(next http.Handler) http.Handler {
 	return DashAuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		userID, err := strconv.Atoi(r.Context().Value(utils.CtxUserID).(string))
-		if err != nil {
-			utils.WriteCodeError(w, http.StatusInternalServerError)
-			return
-		}
-
-		user, err := utils.GetUserByID(userID)
+		user, err := utils.GetUserByID(utils.GetUserID(r))
 		if err != nil || !user.Admin {
 			utils.WriteCodeError(w, http.StatusForbidden)
 			return

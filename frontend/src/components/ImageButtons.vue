@@ -27,12 +27,7 @@ defineEmits<{
       <SquareArrowOutUpRightIcon class="stroke-black/80" />
     </a>
     <button
-      @click="
-        () => {
-          $emit('delete', image.id)
-          console.log('hi')
-        }
-      ">
+      @click="$emit('delete', image.id)">
       <Trash2Icon class="stroke-danger" />
     </button>
   </div>

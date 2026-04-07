@@ -4,7 +4,6 @@ import (
 	"errors"
 	"img/utils"
 	"net/http"
-	"strconv"
 
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -88,12 +87,7 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 
 	user, err := utils.LoginUser(payload.Username, payload.Password)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			utils.WriteCodeError(w, http.StatusNotFound)
-			return
-		}
-
-		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
 			utils.WriteCodeError(w, http.StatusUnauthorized)
 			return
 		}
@@ -117,7 +111,7 @@ type dashboardStatistics struct {
 }
 
 func DashboardStatistics(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(utils.CtxUserID)
+	userID := utils.GetUserID(r)
 	query := `
 		SELECT
 			COUNT(*),
@@ -148,11 +142,7 @@ func DashboardPing(w http.ResponseWriter, r *http.Request) {
 
 func ResetToken(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	userID, err := strconv.Atoi(ctx.Value(utils.CtxUserID).(string))
-	if err != nil {
-		utils.InternalServerError(w, err)
-		return
-	}
+	userID := utils.GetUserID(r)
 
 	token, err := utils.CreateToken(userID)
 	if err != nil {
@@ -186,14 +176,7 @@ func LogoutUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func AdminStatistics(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	userID, err := strconv.Atoi(ctx.Value(utils.CtxUserID).(string))
-	if err != nil {
-		utils.InternalServerError(w, err)
-		return
-	}
-
-	user, err := utils.GetUserByID(userID)
+	user, err := utils.GetUserByID(utils.GetUserID(r))
 	if err != nil {
 		utils.InternalServerError(w, err)
 		return

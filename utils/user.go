@@ -2,10 +2,12 @@ package utils
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"aidanwoods.dev/go-paseto"
@@ -107,11 +109,22 @@ func GetToken(user User) (string, error) {
 	return string(token), nil
 }
 
-// this works but this would also mean that on restart the secret key changes
-// which would "invalidate" all the previous session prior to the restart.
-// this could also make it a fresh start :D
-var sk = paseto.NewV4AsymmetricSecretKey()
-var pk = sk.Public()
+var sessionKey paseto.V4SymmetricKey
+
+func init() {
+	secret := os.Getenv("SESSION_SECRET")
+	if secret == "" {
+		log.Println("SESSION_SECRET not set, sessions will be invalidated on every restart")
+		sessionKey = paseto.NewV4SymmetricKey()
+		return
+	}
+	hash := sha256.Sum256([]byte(secret))
+	var err error
+	sessionKey, err = paseto.V4SymmetricKeyFromBytes(hash[:])
+	if err != nil {
+		panic(fmt.Sprintf("failed to init session key: %v", err))
+	}
+}
 
 func CreateSessionToken(user User, expiry time.Time) string {
 	token := paseto.NewToken()
@@ -122,9 +135,7 @@ func CreateSessionToken(user User, expiry time.Time) string {
 
 	token.Set("user_id", fmt.Sprint(user.ID))
 
-	signed := token.V4Sign(sk, nil)
-
-	return signed
+	return token.V4Encrypt(sessionKey, nil)
 }
 
 const DASH_COOKIE_NAME = "meteorite-cookie"
@@ -135,26 +146,30 @@ func CreateDashSessionCookie(user User) http.Cookie {
 	token := CreateSessionToken(user, expiry)
 
 	return http.Cookie{
-		Name:    DASH_COOKIE_NAME,
-		Value:   token,
-		Expires: expiry,
-		Path:    "/api",
+		Name:     DASH_COOKIE_NAME,
+		Value:    token,
+		Expires:  expiry,
+		Path:     "/api",
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
 	}
 }
 
 // this is for cookie invalidation on the browser.
 func CreateInvalidDashSessionCookie() http.Cookie {
 	return http.Cookie{
-		Name:    DASH_COOKIE_NAME,
-		Value:   "",
-		Expires: time.Unix(0, 0),
-		Path:    "/api",
+		Name:     DASH_COOKIE_NAME,
+		Value:    "",
+		Expires:  time.Unix(0, 0),
+		Path:     "/api",
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
 	}
 }
 
 func VerifySessionToken(signed string) (string, error) {
 	parser := paseto.NewParser()
-	token, err := parser.ParseV4Public(pk, signed, nil)
+	token, err := parser.ParseV4Local(sessionKey, signed, nil)
 	if err != nil {
 		log.Println("could not parse token", err)
 		return "", err
@@ -162,7 +177,7 @@ func VerifySessionToken(signed string) (string, error) {
 
 	userID, err := token.GetString("user_id")
 	if err != nil {
-		log.Println("could not set user id", err)
+		log.Println("could not get user id from token", err)
 		return "", err
 	}
 

@@ -47,7 +47,7 @@ func ImageUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mimetype := mimetype.Detect(data)
-	userID, _ := r.Context().Value(utils.CtxUserID).(int)
+	userID := utils.GetUserID(r)
 
 	_, err = utils.DB.Exec(r.Context(), "INSERT INTO images (id, image_data, mimetype, user_id) VALUES ($1, $2, $3, $4)", id, data, mimetype.String(), userID)
 	if err != nil {
@@ -61,8 +61,13 @@ func ImageUpload(w http.ResponseWriter, r *http.Request) {
 		mimetype.Extension(),
 	)
 
-	json, _ := json.Marshal(&imageUploadResponse{URL})
-	w.Write(json)
+	respJSON, err := json.Marshal(&imageUploadResponse{URL})
+	if err != nil {
+		utils.InternalServerError(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(respJSON)
 }
 
 // /{id} --redirect--> /{user}/{id}
@@ -174,10 +179,10 @@ type GetImagesResp struct {
 }
 
 func GetImages(w http.ResponseWriter, r *http.Request) {
-	userID, _ := strconv.Atoi(r.Context().Value(utils.CtxUserID).(string))
+	userID := utils.GetUserID(r)
 
 	page, err := strconv.Atoi(r.URL.Query().Get("page"))
-	if err != nil {
+	if err != nil || page < 0 {
 		page = 0
 	}
 

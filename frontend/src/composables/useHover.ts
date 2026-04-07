@@ -14,8 +14,8 @@ export function useHover(template: TemplateRef<HTMLElement>): Ref<boolean> {
 
   onBeforeUnmount(() => {
     if (!template.value) return
-    template.value.addEventListener("mouseenter", enter)
-    template.value.addEventListener("mouseleave", leave)
+    template.value.removeEventListener("mouseenter", enter)
+    template.value.removeEventListener("mouseleave", leave)
   })
 
   return isHovered

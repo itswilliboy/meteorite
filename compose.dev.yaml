@@ -1,0 +1,53 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@database:5432/images
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - go-pkg-cache:/root/go/pkg
+
+  frontend:
+    image: oven/bun:1.2.19-alpine
+    working_dir: /frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/frontend
+      - frontend-node-modules:/frontend/node_modules
+    command: sh -c "bun install --frozen-lockfile && bun run dev"
+    depends_on:
+      - backend
+
+  database:
+    image: postgres:13.14-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=images
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      interval: 1s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - database:/var/lib/postgresql/data
+
+volumes:
+  database:
+    driver: local
+  go-pkg-cache:
+    driver: local
+  frontend-node-modules:
+    driver: local

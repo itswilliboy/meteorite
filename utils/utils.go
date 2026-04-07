@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -198,6 +197,6 @@ func WriteJSONBody(writer http.ResponseWriter, payload JSONResponse) error {
 }
 
 func GetUserID(r *http.Request) int {
-	userID, _ := strconv.Atoi(r.Context().Value(CtxUserID).(string))
-	return userID
+	id, _ := r.Context().Value(CtxUserID).(int)
+	return id
 }

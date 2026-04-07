@@ -2,15 +2,24 @@
 import clsx from "clsx"
 import { LayoutDashboard, Images, Link, Upload, Server, Settings, LogOut } from "lucide-vue-next"
 import type { FunctionalComponent } from "vue"
+import { computed, onMounted, ref } from "vue"
 
 import { useRouter } from "vue-router"
 import useClient from "@/composables/useClient"
+import type { User } from "@/utils/type"
 
 const client = useClient()
 const router = useRouter()
 
+const currentUser = ref<User | null>(null)
+onMounted(() => {
+  const stored = localStorage.getItem("user")
+  if (stored) currentUser.value = JSON.parse(stored)
+})
+
 const logOut = async () => {
   await client.logout()
+  localStorage.removeItem("user")
   router.push("/login")
 }
 
@@ -39,18 +48,22 @@ const upperButtons = [
   }
 ] satisfies ButtonT[]
 
-const lowerButtons = [
+const allLowerButtons = [
   {
     name: "Admin Dashboard",
     to: "/admin/dash",
-    icon: Server
+    icon: Server,
+    adminOnly: true
   },
   {
     name: "Settings",
     to: "/dash/settings",
-    icon: Settings
+    icon: Settings,
+    adminOnly: false
   }
-] satisfies ButtonT[]
+]
+
+const lowerButtons = computed(() => allLowerButtons.filter(b => !b.adminOnly || currentUser.value?.admin))
 
 defineProps<{ title: string; className?: string }>()
 </script>
