@@ -79,7 +79,14 @@ func main() {
 			r.Post("/delete-image", routes.DeleteImage)
 		})
 
-		r.With(DashAuthAdminMiddleware).Get("/admin-stats", routes.AdminStatistics)
+		r.Route("/admin", func(r chi.Router) {
+			r.Use(DashAuthAdminMiddleware)
+
+			r.Get("/stats", routes.AdminStatistics)
+			r.Get("/users", routes.AdminListUsers)
+			r.Post("/users/{id}/enabled", routes.AdminSetUserEnabled)
+			r.Post("/users/{id}/admin", routes.AdminSetUserAdmin)
+		})
 	})
 
 	// Authenticated routes

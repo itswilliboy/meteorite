@@ -3,6 +3,7 @@ import { computed, onActivated, onMounted, ref } from "vue"
 
 import PageContainer from "@/components/PageContainer.vue"
 import Card from "@/components/Card.vue"
+import { StatCard } from "@/components/common"
 import ImageOrVideo from "@/components/ImageOrVideo.vue"
 import TrendChart from "@/components/TrendChart.vue"
 import useClient from "@/composables/useClient"
@@ -70,15 +71,12 @@ const stats = [
   <PageContainer title="Dashboard" className="space-y-6">
     <!-- Stats -->
     <section class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-      <Card v-for="stat in stats" :key="stat.key" class="space-y-3">
-        <div class="flex items-center justify-between">
-          <span class="text-muted text-xs font-semibold tracking-wide uppercase">{{ stat.label }}</span>
-          <component :is="stat.icon" :size="16" class="text-primary" />
-        </div>
-
-        <h2 v-if="data" class="text-2xl font-bold leading-none">{{ stat.format(data[stat.key]) }}</h2>
-        <div v-else class="bg-surface-2 h-6 w-2/3 animate-pulse rounded"></div>
-      </Card>
+      <StatCard
+        v-for="stat in stats"
+        :key="stat.key"
+        :label="stat.label"
+        :icon="stat.icon"
+        :value="data ? stat.format(data[stat.key]) : null" />
     </section>
 
     <!-- Trends -->
@@ -118,7 +116,7 @@ const stats = [
         <div v-else-if="recent.length === 0" class="text-muted flex flex-col items-center gap-2 py-12">
           <ImageOff :size="32" />
           <p class="text-sm">No uploads yet</p>
-          <RouterLink to="/dash/upload" class="text-primary text-sm font-semibold hover:underline">
+          <RouterLink to="/dash/images" class="text-primary text-sm font-semibold hover:underline">
             Upload your first file
           </RouterLink>
         </div>

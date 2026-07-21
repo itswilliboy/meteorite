@@ -257,14 +257,3 @@ func LogoutUser(w http.ResponseWriter, r *http.Request) {
 	resp := utils.JSONResponse{Status: 200, Data: "ok"}
 	utils.WriteJSONBody(w, resp)
 }
-
-func AdminStatistics(w http.ResponseWriter, r *http.Request) {
-	user, err := utils.GetUserByID(utils.GetUserID(r))
-	if err != nil {
-		utils.InternalServerError(w, err)
-		return
-	}
-
-	p := utils.JSONResponse{Status: http.StatusOK, Data: user}
-	utils.WriteJSONBody(w, p)
-}

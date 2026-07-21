@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import Card from "@/components/Card.vue"
+import { Button, PaginationControls } from "@/components/common"
 import ImageCard from "@/components/ImageCard.vue"
 import PageContainer from "@/components/PageContainer.vue"
 import FileDrop from "@/components/FileDrop.vue"
@@ -9,7 +10,7 @@ import useToaster from "@/composables/useToaster"
 import { bumpMediaVersion } from "@/composables/useMediaVersion"
 import type { Image, PaginatedResponse } from "@/utils/type"
 import { computed, onMounted, ref } from "vue"
-import { ChevronLeft, ChevronRight, ListChecksIcon, Trash2Icon, XIcon } from "lucide-vue-next"
+import { ListChecksIcon, Trash2Icon, XIcon } from "lucide-vue-next"
 
 defineOptions({ name: "DashImageView" })
 
@@ -120,26 +121,11 @@ const uploadFiles = async (files: File[]) => {
       :confirm-action="() => bulkDelete()" />
 
     <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-      <div class="flex items-center gap-1">
-        <button
-          :disabled="!(response?.hasPrev ?? false)"
-          @click="setPage((response?.page ?? 0) - 1)"
-          class="border-border bg-surface text-muted hover:bg-surface-2 hover:text-foreground grid size-9 place-items-center rounded-lg border transition hover:cursor-pointer disabled:pointer-events-none disabled:opacity-40">
-          <ChevronLeft :size="18" />
-        </button>
-
-        <p class="text-muted px-3 text-sm font-medium tabular-nums">
-          Page
-          <span class="text-foreground font-semibold">{{ (response?.page ?? 0) + 1 }}</span>
-        </p>
-
-        <button
-          :disabled="!(response?.hasNext ?? false)"
-          @click="setPage((response?.page ?? 0) + 1)"
-          class="border-border bg-surface text-muted hover:bg-surface-2 hover:text-foreground grid size-9 place-items-center rounded-lg border transition hover:cursor-pointer disabled:pointer-events-none disabled:opacity-40">
-          <ChevronRight :size="18" />
-        </button>
-      </div>
+      <PaginationControls
+        :page="response?.page ?? 0"
+        :has-prev="response?.hasPrev ?? false"
+        :has-next="response?.hasNext ?? false"
+        @update:page="setPage" />
 
       <button
         @click="toggleSelectMode"
@@ -167,13 +153,9 @@ const uploadFiles = async (files: File[]) => {
           <span class="text-muted text-sm">{{ selected.size }} selected</span>
         </div>
 
-        <button
-          :disabled="selected.size === 0"
-          @click="bulkConfirmOpen = true"
-          class="bg-danger flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-white transition hover:cursor-pointer hover:opacity-90 disabled:pointer-events-none disabled:opacity-40">
-          <Trash2Icon :size="16" />
+        <Button variant="danger" :icon="Trash2Icon" :disabled="selected.size === 0" @click="bulkConfirmOpen = true">
           Delete selected
-        </button>
+        </Button>
       </div>
     </Transition>
 

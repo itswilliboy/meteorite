@@ -3,8 +3,9 @@ import { ref } from "vue"
 import { useRouter } from "vue-router"
 
 import InputBar from "@/components/InputBar.vue"
+import { Button } from "@/components/common"
 import useClient from "@/composables/useClient"
-import { Eye, EyeOff, LucideLoader2 } from "lucide-vue-next"
+import { Eye, EyeOff } from "lucide-vue-next"
 
 const router = useRouter()
 const client = useClient()
@@ -35,6 +36,9 @@ const loginCallback = async (e: Event) => {
 </script>
 
 <template>
+  <a href="https://github.com/itswilliboy/meteorite" target="_blank" class="absolute p-3 opacity-40 cursor-pointer hover:opacity-60 transition-opacity">
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 16 16"><!-- Icon from Charm Icons by Jay Newey - https://github.com/jaynewey/charm-icons/blob/main/LICENSE --><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="m5.75 14.25s-.5-2 .5-3c0 0-2 0-3.5-1.5s-1-4.5 0-5.5c-.5-1.5.5-2.5.5-2.5s1.5 0 2.5 1c1-.5 3.5-.5 4.5 0 1-1 2.5-1 2.5-1s1 1 .5 2.5c1 1 1.5 4 0 5.5s-3.5 1.5-3.5 1.5c1 1 .5 3 .5 3"/><path d="m5.25 13.75c-1.5.5-3-.5-3.5-1"/></g></svg>
+  </a>
   <div class="bg-background flex min-h-screen items-center justify-center px-4 py-10">
     <div class="w-full max-w-sm">
       <div class="mb-6 flex flex-col items-center text-center">
@@ -78,13 +82,9 @@ const loginCallback = async (e: Event) => {
           {{ error }}
         </p>
 
-        <button
-          type="submit"
-          :disabled="loading"
-          class="bg-primary focus:ring-primary/40 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition hover:cursor-pointer hover:opacity-90 focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60">
-          <LucideLoader2 v-if="loading" :size="16" class="animate-spin" />
+        <Button type="submit" :loading="loading" class="focus:ring-primary/40 w-full focus:ring-2 focus:outline-none">
           {{ loading ? "Signing in..." : "Sign in" }}
-        </button>
+        </Button>
       </form>
     </div>
   </div>

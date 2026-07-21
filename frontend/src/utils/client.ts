@@ -1,7 +1,7 @@
 import { $fetch, type FetchOptions, type FetchRequest } from "ofetch"
 import { type Router } from "vue-router"
 
-import type { APIResponse, DashboardStats, DashboardTimeseries, Image, PaginatedResponse, User } from "./type"
+import type { AdminStats, AdminUser, APIResponse, DashboardStats, DashboardTimeseries, Image, PaginatedResponse, User } from "./type"
 
 export class HTTPException extends Error {
   status: number
@@ -87,6 +87,23 @@ export class Client {
 
   async deleteImage(imageId: string): Promise<void> {
     return this.request<void>("/api/delete-image", { query: { id: imageId }, method: "POST" })
+  }
+
+  async adminStats(): Promise<AdminStats> {
+    return this.request<AdminStats>("/api/admin/stats")
+  }
+
+  async adminListUsers(page: number = 0) {
+    const resp = await this.requestPaginated<AdminUser[]>(`/api/admin/users?page=${page}`)
+    return { ...resp, data: resp.data.map(u => ({ ...u, created_at: new Date(u.created_at) })) }
+  }
+
+  async adminSetUserEnabled(id: number, enabled: boolean): Promise<User> {
+    return this.request<User>(`/api/admin/users/${id}/enabled`, { method: "POST", body: { enabled } })
+  }
+
+  async adminSetUserAdmin(id: number, admin: boolean): Promise<User> {
+    return this.request<User>(`/api/admin/users/${id}/admin`, { method: "POST", body: { admin } })
   }
 
   async uploadImage(imageData: Blob): Promise<{ URL: string }> {

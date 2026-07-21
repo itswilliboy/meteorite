@@ -20,6 +20,7 @@ import useToaster from "@/composables/useToaster"
 import useClient from "@/composables/useClient"
 import { computed, ref } from "vue"
 import ConfirmDialogue from "./ConfirmDialogue.vue"
+import { Button } from "@/components/common"
 
 const { image } = defineProps<{ image: Image }>()
 
@@ -145,20 +146,10 @@ const emit = defineEmits<{
               </div>
             </dl>
 
-            <div
-              class="mt-5 grid w-full shrink-0 grid-cols-3 gap-2 text-center *:flex *:cursor-pointer *:items-center *:justify-center *:gap-1.5 *:rounded-xl *:p-3 *:text-sm *:font-semibold *:transition *:hover:opacity-90">
-              <button class="bg-primary text-white" @click="copyToClipboard">
-                <LinkIcon class="size-4" />
-                Copy
-              </button>
-              <button class="bg-surface-2 text-foreground" @click="downloadFile">
-                <DownloadIcon class="size-4" />
-                Download
-              </button>
-              <button class="bg-danger text-white" @click="() => (confirmOpen = true)">
-                <Trash2Icon class="size-4" />
-                Delete
-              </button>
+            <div class="mt-5 grid w-full shrink-0 grid-cols-3 gap-2">
+              <Button :icon="LinkIcon" @click="copyToClipboard">Copy</Button>
+              <Button variant="secondary" :icon="DownloadIcon" @click="downloadFile">Download</Button>
+              <Button variant="danger" :icon="Trash2Icon" @click="() => (confirmOpen = true)">Delete</Button>
             </div>
           </div>
         </div>

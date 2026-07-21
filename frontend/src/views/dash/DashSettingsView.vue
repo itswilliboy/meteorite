@@ -3,6 +3,7 @@ import { onMounted, ref } from "vue"
 
 import PageContainer from "@/components/PageContainer.vue"
 import Card from "@/components/Card.vue"
+import { Button } from "@/components/common"
 
 import {
   Clipboard,
@@ -171,13 +172,9 @@ const formatDate = (date: Date | string): string =>
           <p class="text-muted text-xs">This would invalidate your current key.</p>
         </div>
 
-        <button
-          class="bg-danger flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition hover:cursor-pointer hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-          :disabled="resetting"
-          @click="resetTokenCallback">
-          <RefreshCw :size="15" :class="{ 'animate-spin': resetting }" />
+        <Button variant="danger" :icon="RefreshCw" :loading="resetting" class="w-full sm:w-auto" @click="resetTokenCallback">
           {{ resetting ? "Regenerating..." : "Regenerate" }}
-        </button>
+        </Button>
       </div>
     </Card>
   </PageContainer>

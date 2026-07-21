@@ -38,6 +38,18 @@ export type User = {
   admin: boolean
 }
 
+export type AdminStats = {
+  total_users: number
+  active_users: number
+  total_media: number
+  total_storage: number
+}
+
+export type AdminUser = User & {
+  total_images: number
+  storage_usage: number
+}
+
 export type Image = {
   id: string
   date: string

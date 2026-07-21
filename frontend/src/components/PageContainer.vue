@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import clsx from "clsx"
-import { LayoutDashboard, Images, Link, Upload, Server, Settings, LogOut } from "lucide-vue-next"
+import { LayoutDashboard, Images, Link, Server, Settings, LogOut } from "lucide-vue-next"
 import type { FunctionalComponent } from "vue"
 import { computed, onMounted, ref } from "vue"
 
@@ -40,18 +40,13 @@ const upperButtons = [
     name: "Links",
     to: "/dash/links",
     icon: Link
-  },
-  {
-    name: "Upload",
-    to: "/dash/upload",
-    icon: Upload
   }
 ] satisfies ButtonT[]
 
 const allLowerButtons = [
   {
     name: "Admin Dashboard",
-    to: "/admin/dash",
+    to: "/dash/admin",
     icon: Server,
     adminOnly: true
   },
