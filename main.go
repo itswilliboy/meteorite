@@ -74,6 +74,7 @@ func main() {
 			r.Get("/stats", routes.DashboardStatistics)
 
 			r.Get("/get-images", routes.GetImages)
+			r.Post("/upload", routes.ImageUpload)
 			r.Post("/delete-image", routes.DeleteImage)
 		})
 

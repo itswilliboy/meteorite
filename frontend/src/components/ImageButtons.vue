@@ -21,10 +21,10 @@ defineEmits<{
 
 <template>
   <div
-    class="bg-background flex w-max items-center justify-center rounded-md p-1 *:cursor-pointer *:rounded-md *:p-1 *:hover:bg-black/10">
-    <button @click="copyToClipboard"><CopyIcon class="stroke-black/80" /></button>
+    class="bg-surface border-border text-foreground flex w-max items-center justify-center rounded-md border p-1 shadow-sm *:cursor-pointer *:rounded-md *:p-1 *:hover:bg-black/10 dark:*:hover:bg-white/10">
+    <button @click="copyToClipboard"><CopyIcon :size="20" /></button>
     <a :href="image.url" target="_blank">
-      <SquareArrowOutUpRightIcon class="stroke-black/80" />
+      <SquareArrowOutUpRightIcon :size="20" />
     </a>
     <button
       @click="$emit('delete', image.id)">

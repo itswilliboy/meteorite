@@ -1,19 +1,38 @@
 @import "tailwindcss";
 @import "@fontsource-variable/noto-sans";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --default-font-family: "Noto Sans Variable", "sans-serif";
 
-  /* Colours */
-  --color-background: #f9fafb;
-
+  /* Accent colours */
   --color-primary: #574ae2;
   --color-success: #21d19f;
   --color-info: #46a4e2;
   --color-warning: #f8ef8c;
   --color-danger: #f94f4f;
+
+  /* Semantic surface tokens (light defaults) */
+  --color-background: #f9fafb;
+  --color-surface: #ffffff;
+  --color-surface-2: #f3f4f6;
+  --color-foreground: #111827;
+  --color-muted: #6b7280;
+  --color-border: rgba(17, 24, 39, 0.08);
+}
+
+/* Dark theme overrides — flipping the vars re-themes every utility that uses them */
+.dark {
+  --color-background: #0b0d13;
+  --color-surface: #161922;
+  --color-surface-2: #212636;
+  --color-foreground: #e6e8ee;
+  --color-muted: #9aa0ac;
+  --color-border: rgba(255, 255, 255, 0.09);
 }
 
 body {
   background-color: var(--color-background);
+  color: var(--color-foreground);
 }

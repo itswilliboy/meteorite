@@ -71,7 +71,8 @@ defineProps<{ title: string; className?: string }>()
 <template>
   <div class="flex">
     <aside>
-      <nav class="sticky top-0 left-0 flex h-screen w-16 flex-col items-center justify-between bg-white py-10">
+      <nav
+        class="border-border bg-surface sticky top-0 left-0 flex h-screen w-16 flex-col items-center justify-between border-r py-10">
         <div class="item">
           <router-link :to="item.to" v-for="item in upperButtons" :key="item.to">
             <component :is="item.icon" :size="24" />
@@ -90,8 +91,8 @@ defineProps<{ title: string; className?: string }>()
       </nav>
     </aside>
 
-    <div class="w-full px-6 pt-10">
-      <h1 class="mb-5 text-2xl font-extrabold">{{ title }}</h1>
+    <div class="w-full min-w-0 px-4 pt-6 sm:px-6 sm:pt-10">
+      <h1 class="mb-4 text-xl font-extrabold sm:mb-5 sm:text-2xl">{{ title }}</h1>
 
       <main :class="clsx(className)">
         <slot />
@@ -104,7 +105,7 @@ defineProps<{ title: string; className?: string }>()
 @reference "../assets/main.css";
 
 .router-link-active {
-  @apply !rounded-xl !bg-black/10;
+  @apply !rounded-xl !bg-black/10 dark:!bg-white/10;
 }
 
 .item {
@@ -115,7 +116,7 @@ defineProps<{ title: string; className?: string }>()
     @apply m-1 flex items-center justify-center rounded-xl p-2;
 
     &:hover {
-      @apply cursor-pointer bg-black/3;
+      @apply cursor-pointer bg-black/3 dark:bg-white/6;
     }
   }
 }

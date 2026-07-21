@@ -115,12 +115,12 @@ func DashboardStatistics(w http.ResponseWriter, r *http.Request) {
 	query := `
 		SELECT
 			COUNT(*),
-			COALESCE(SUM(octet_length(COALESCE(image_data, ''))), 0),
+			COALESCE(SUM(octet_length(COALESCE(data, ''))), 0),
 			COUNT(*) FILTER (
 				WHERE date >= date_trunc('month', CURRENT_DATE)
 			),
-			COALESCE(SUM(COALESCE(octet_length(image_data), 0) * COALESCE(views, 0)), 0)
-		FROM images
+			COALESCE(SUM(COALESCE(octet_length(data), 0) * COALESCE(views, 0)), 0)
+		FROM media
 		WHERE user_id = $1
 	`
 

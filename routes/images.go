@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image"
 	"image/jpeg"
 	"image/png"
 	"img/utils"
@@ -26,7 +27,7 @@ type imageUploadResponse struct {
 func ImageUpload(w http.ResponseWriter, r *http.Request) {
 	r.ParseMultipartForm(100 << 20)
 
-	file, _, err := r.FormFile("file")
+	file, header, err := r.FormFile("file")
 	if err != nil {
 		log.Printf("Error while retrieving file: %v\n", err)
 		utils.WriteCodeError(w, http.StatusBadRequest)
@@ -46,10 +47,74 @@ func ImageUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mimetype := mimetype.Detect(data)
+	mtype := mimetype.Detect(data)
+	category := strings.Split(mtype.String(), "/")[0]
 	userID := utils.GetUserID(r)
 
-	_, err = utils.DB.Exec(r.Context(), "INSERT INTO images (id, image_data, mimetype, user_id) VALUES ($1, $2, $3, $4)", id, data, mimetype.String(), userID)
+	var filename *string
+	if header != nil && header.Filename != "" {
+		name := header.Filename
+		filename = &name
+	}
+
+	var width, height, durationMs, bitrate, sampleRate, channels *int
+	var codec *string
+	var framerate *float64
+	var coverArt []byte
+
+	switch category {
+	case "image":
+		if cfg, _, err := image.DecodeConfig(bytes.NewReader(data)); err == nil {
+			w, h := cfg.Width, cfg.Height
+			width, height = &w, &h
+		}
+	case "video", "audio":
+		if meta, err := utils.ProbeMedia(data, mtype.Extension()); err == nil {
+			if meta.Width > 0 {
+				width = &meta.Width
+			}
+			if meta.Height > 0 {
+				height = &meta.Height
+			}
+			if meta.DurationMs > 0 {
+				durationMs = &meta.DurationMs
+			}
+			if meta.Bitrate > 0 {
+				bitrate = &meta.Bitrate
+			}
+			if meta.Codec != "" {
+				codec = &meta.Codec
+			}
+			if meta.Framerate > 0 {
+				framerate = &meta.Framerate
+			}
+			if meta.SampleRate > 0 {
+				sampleRate = &meta.SampleRate
+			}
+			if meta.Channels > 0 {
+				channels = &meta.Channels
+			}
+		} else {
+			log.Printf("Error probing media: %v\n", err)
+		}
+
+		if category == "audio" {
+			if art, err := utils.ExtractCoverArt(data, mtype.Extension()); err == nil {
+				coverArt = art
+			}
+		}
+	}
+
+	_, err = utils.DB.Exec(
+		r.Context(),
+		`
+			INSERT INTO media
+				(id, data, mimetype, user_id, filename, width, height, duration_ms, bitrate, codec, framerate, sample_rate, channels, cover_art)
+			VALUES
+				($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		`,
+		id, data, mtype.String(), userID, filename, width, height, durationMs, bitrate, codec, framerate, sampleRate, channels, coverArt,
+	)
 	if err != nil {
 		utils.InternalServerError(w, err)
 		return
@@ -58,7 +123,7 @@ func ImageUpload(w http.ResponseWriter, r *http.Request) {
 	URL := fmt.Sprintf(`%s/%s%s`,
 		utils.BaseURL,
 		id,
-		mimetype.Extension(),
+		mtype.Extension(),
 	)
 
 	respJSON, err := json.Marshal(&imageUploadResponse{URL})
@@ -79,7 +144,7 @@ func ImageRedirect(w http.ResponseWriter, r *http.Request) {
 	imageID := strings.Split(filename, ".")[0]
 
 	var userID int
-	err := utils.DB.QueryRow(r.Context(), "SELECT user_id FROM images WHERE id = $1", imageID).Scan(&userID)
+	err := utils.DB.QueryRow(r.Context(), "SELECT user_id FROM media WHERE id = $1", imageID).Scan(&userID)
 	if err != nil {
 		utils.WriteCodeError(w, http.StatusNotFound)
 		return
@@ -97,6 +162,9 @@ func ImageRedirect(w http.ResponseWriter, r *http.Request) {
 		redirectURL += "?" + queryParams.Encode()
 	}
 
+	// cross-origin fetch() (eg. the dashboard's text preview) needs this on
+	// the redirect response itself, not just the final destination
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 }
 
@@ -105,28 +173,61 @@ func ImageGet(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	split := strings.Split(id, ".")
 
+	// this route is unauthenticated and public,
+	// so allowing cross-origin reads (needed for dash text
+	// preview, which fetches the body via JS) doesn't expose anything new
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
 	isDashboard := (r.URL.Query().Get("d") == "true")
+	wantCover := (r.URL.Query().Get("cover") == "true")
+	wantDownload := (r.URL.Query().Get("download") == "true")
+
+	if wantCover {
+		var coverArt []byte
+		err := utils.DB.QueryRow(
+			r.Context(),
+			`
+			SELECT m.cover_art
+			FROM media m
+			JOIN users ON m.user_id = users.id
+				WHERE m.id = $1 AND users.name = $2;
+			`,
+			split[0], user,
+		).Scan(&coverArt)
+		if err != nil || len(coverArt) == 0 {
+			utils.WriteCodeError(w, http.StatusNotFound)
+			return
+		}
+
+		coverMime := mimetype.Detect(coverArt)
+		w.Header().Set("Content-Type", coverMime.String())
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		w.Write(coverArt)
+		return
+	}
 
 	var imageData []byte
-	var mimetype string
+	var mimeType string
+	var filename *string
 	err := utils.DB.QueryRow(
 		r.Context(),
 		`
 		WITH updated AS (
-			UPDATE images
+			UPDATE media
 			SET views = views + CASE WHEN $3 = false THEN 1 ELSE 0 END
 			WHERE id = $1
-			RETURNING image_data, mimetype, user_id
+			RETURNING data, mimetype, filename, user_id
 		)
 		SELECT
-			u.image_data,
-			u.mimetype
+			u.data,
+			u.mimetype,
+			u.filename
 		FROM updated u
 		JOIN users ON u.user_id = users.id
 			WHERE users.name = $2;
 		`,
 		split[0], user, isDashboard,
-	).Scan(&imageData, &mimetype)
+	).Scan(&imageData, &mimeType, &filename)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			utils.WriteCodeError(w, http.StatusNotFound)
@@ -135,6 +236,14 @@ func ImageGet(w http.ResponseWriter, r *http.Request) {
 
 		utils.InternalServerError(w, err)
 		return
+	}
+
+	if wantDownload {
+		name := id
+		if filename != nil && *filename != "" {
+			name = *filename
+		}
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", name))
 	}
 
 	width := r.URL.Query().Get("width")
@@ -163,19 +272,30 @@ func ImageGet(w http.ResponseWriter, r *http.Request) {
 
 		imageData = out.Bytes()
 	} else {
-		w.Header().Set("Content-Type", mimetype)
+		w.Header().Set("Content-Type", mimeType)
 	}
 
 	w.Header().Set("Cache-Control", "public, max-age=3600")
-	w.Write(imageData)
+	http.ServeContent(w, r, "", time.Time{}, bytes.NewReader(imageData))
 }
 
 type GetImagesResp struct {
-	ID       string `json:"id"`
-	Date     any    `json:"date"`
-	Mimetype string `json:"mimetype"`
-	Views    int    `json:"views"`
-	URL      string `json:"url"`
+	ID         string   `json:"id"`
+	Date       any      `json:"date"`
+	Mimetype   string   `json:"mimetype"`
+	Views      int      `json:"views"`
+	URL        string   `json:"url"`
+	Filename   *string  `json:"filename"`
+	Size       int64    `json:"size"`
+	Width      *int     `json:"width"`
+	Height     *int     `json:"height"`
+	DurationMs *int     `json:"duration_ms"`
+	Bitrate    *int     `json:"bitrate"`
+	Codec      *string  `json:"codec"`
+	Framerate  *float64 `json:"framerate"`
+	SampleRate *int     `json:"sample_rate"`
+	Channels   *int     `json:"channels"`
+	HasCover   bool     `json:"has_cover"`
 }
 
 func GetImages(w http.ResponseWriter, r *http.Request) {
@@ -192,8 +312,11 @@ func GetImages(w http.ResponseWriter, r *http.Request) {
 	rows, err := utils.DB.Query(
 		r.Context(),
 		`
-			SELECT id, date, mimetype, views 
-			FROM images
+			SELECT
+				id, date, mimetype, views, filename, octet_length(data) AS size,
+				width, height, duration_ms, bitrate, codec, framerate, sample_rate, channels,
+				(cover_art IS NOT NULL) AS has_cover
+			FROM media
 			WHERE user_id = $1
 			ORDER BY date DESC
 			OFFSET ($2)
@@ -212,13 +335,22 @@ func GetImages(w http.ResponseWriter, r *http.Request) {
 		var img GetImagesResp
 		var date time.Time
 
-		if err := rows.Scan(&img.ID, &date, &img.Mimetype, &img.Views); err != nil {
+		if err := rows.Scan(
+			&img.ID, &date, &img.Mimetype, &img.Views, &img.Filename, &img.Size,
+			&img.Width, &img.Height, &img.DurationMs, &img.Bitrate, &img.Codec, &img.Framerate, &img.SampleRate, &img.Channels,
+			&img.HasCover,
+		); err != nil {
 			utils.InternalServerError(w, err)
 			return
 		}
 
 		img.Date = date
-		img.URL = fmt.Sprintf("%s/%s%s", utils.BaseURL, img.ID, mimetype.Lookup(img.Mimetype).Extension())
+
+		extension := ""
+		if m := mimetype.Lookup(img.Mimetype); m != nil {
+			extension = m.Extension()
+		}
+		img.URL = fmt.Sprintf("%s/%s%s", utils.BaseURL, img.ID, extension)
 		images = append(images, img)
 	}
 
@@ -234,7 +366,6 @@ func GetImages(w http.ResponseWriter, r *http.Request) {
 		images = images[:pageSize]
 	}
 
-	// utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusOK, Data: })
 	utils.WriteJSONBody(w, utils.JSONResponse{
 		Status:   http.StatusOK,
 		Data:     images,
@@ -252,7 +383,7 @@ func DeleteImage(w http.ResponseWriter, r *http.Request) {
 	tag, err := utils.DB.Exec(
 		r.Context(),
 		`
-			DELETE FROM images
+			DELETE FROM media
 			WHERE id = $1
 			AND user_id = $2
 		`,

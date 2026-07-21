@@ -84,4 +84,12 @@ export class Client {
   async deleteImage(imageId: string): Promise<void> {
     return this.request<void>("/api/delete-image", { query: { id: imageId }, method: "POST" })
   }
+
+  async uploadImage(imageData: Blob): Promise<{ URL: string }> {
+    const formData = new FormData()
+    formData.append("file", imageData)
+
+    // only returns url
+    return $fetch<{ URL: string }>("/api/upload", { method: "POST", body: formData })
+  }
 }

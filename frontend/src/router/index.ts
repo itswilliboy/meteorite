@@ -18,6 +18,11 @@ const dashRoutes = [
     component: () => import("@/views/dash/DashLinkView.vue")
   },
   {
+    path: "upload",
+    name: "dashUpload",
+    component: () => import("@/views/dash/DashUploadView.vue")
+  },
+  {
     path: "settings",
     name: "dashSettings",
     component: () => import("@/views/dash/DashSettingsView.vue")

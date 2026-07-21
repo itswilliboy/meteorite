@@ -1,11 +1,17 @@
 <script setup lang="ts">
+import { ref } from "vue"
 import { useRouter } from "vue-router"
 
 import InputBar from "@/components/InputBar.vue"
 import useClient from "@/composables/useClient"
+import { Eye, EyeOff, LucideLoader2 } from "lucide-vue-next"
 
 const router = useRouter()
 const client = useClient()
+
+const showPassword = ref(false)
+const loading = ref(false)
+const error = ref<Option<string>>(null)
 
 const loginCallback = async (e: Event) => {
   const formData = new FormData(e.target as HTMLFormElement)
@@ -13,46 +19,72 @@ const loginCallback = async (e: Event) => {
 
   if (!auth.username || !auth.password) return
 
+  error.value = null
+  loading.value = true
+
   try {
     const user = await client.login(auth.username, auth.password)
     localStorage.setItem("user", JSON.stringify(user))
     router.push("/dash")
   } catch {
-    alert("Invalid username or password")
+    error.value = "Invalid username or password"
+  } finally {
+    loading.value = false
   }
 }
 </script>
 
 <template>
-  <div class="flex min-h-screen items-center justify-center">
-    <div class="w-full max-w-md space-y-8">
-      <section>
-        <img src="/logo.png" alt="logo" class="mx-auto h-12 w-12 object-contain" />
+  <div class="bg-background flex min-h-screen items-center justify-center px-4 py-10">
+    <div class="w-full max-w-sm">
+      <div class="mb-6 flex flex-col items-center text-center">
+        <img src="/logo.png" alt="Meteorite" class="mb-4 size-14 object-contain" />
+        <h1 class="text-foreground text-2xl font-extrabold">Meteorite</h1>
+        <p class="text-muted mt-1 text-sm">Sign in to your account</p>
+      </div>
 
-        <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">Meteorite</h2>
-        <p class="mt-2 text-center text-sm text-gray-600">Sign in to your account</p>
-      </section>
+      <form
+        class="border-border bg-surface space-y-4 rounded-2xl border p-6 shadow-lg dark:shadow-none sm:p-8"
+        @submit.prevent="loginCallback">
+        <InputBar
+          id="username"
+          label="Username"
+          name="username"
+          type="text"
+          autocomplete="username"
+          required
+          placeholder="gopher" />
 
-      <form class="space-y-6" @submit.prevent="loginCallback">
-        <div class="rounded-md shadow-sm">
-          <InputBar label="Username" name="username" type="text" required placeholder="gopher" className="rounded-t-md" />
+        <InputBar
+          id="password"
+          label="Password"
+          name="password"
+          :type="showPassword ? 'text' : 'password'"
+          autocomplete="current-password"
+          required
+          placeholder="••••••••••••">
+          <template #suffix>
+            <button
+              type="button"
+              class="grid size-8 place-items-center rounded-md text-gray-400 transition hover:cursor-pointer hover:text-gray-600"
+              :title="showPassword ? 'Hide password' : 'Show password'"
+              @click="showPassword = !showPassword">
+              <component :is="showPassword ? EyeOff : Eye" :size="18" />
+            </button>
+          </template>
+        </InputBar>
 
-          <InputBar
-            label="Password"
-            name="password"
-            type="password"
-            required
-            placeholder="••••••••••••"
-            className="rounded-b-md" />
-        </div>
+        <p v-if="error" class="bg-danger/10 text-danger rounded-lg px-3 py-2 text-sm font-medium">
+          {{ error }}
+        </p>
 
-        <div>
-          <button
-            type="submit"
-            class="group relative flex w-full justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none">
-            Sign in
-          </button>
-        </div>
+        <button
+          type="submit"
+          :disabled="loading"
+          class="bg-primary focus:ring-primary/40 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition hover:cursor-pointer hover:opacity-90 focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60">
+          <LucideLoader2 v-if="loading" :size="16" class="animate-spin" />
+          {{ loading ? "Signing in..." : "Sign in" }}
+        </button>
       </form>
     </div>
   </div>

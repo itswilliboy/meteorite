@@ -13,14 +13,16 @@ FROM oven/bun:1.2.19-alpine AS bun
 
 WORKDIR /frontend
 
-COPY frontend/package.json frontend/bun.lockb ./
+COPY frontend/package.json frontend/bun.lock ./
 
 RUN bun install --no-cache
 COPY frontend/ ./
 RUN bun run build
 
-FROM scratch
+FROM alpine:3.20
 WORKDIR /app
+
+RUN apk add --no-cache ffmpeg
 
 COPY migrations migrations
 COPY --from=builder /workspace/server ./server

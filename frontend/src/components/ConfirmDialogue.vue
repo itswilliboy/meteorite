@@ -27,30 +27,66 @@ defineEmits<{
 
 <template>
   <Teleport to="body">
-    <div class="fixed inset-0 z-[999] flex items-center justify-center">
-      <div class="absolute inset-0 z-40 bg-black/75" @click="$emit('dismiss')" />
-      <div class="relative z-50 h-60 w-135 rounded-xl bg-white p-6 shadow-xl">
-        <h1 class="text-3xl font-semibold">{{ title }}</h1>
-        <p class="text-black/75">{{ description }}</p>
-        <div
-          class="absolute bottom-0 -ml-5 grid h-max w-full grid-cols-2 gap-2 p-5 text-center text-white *:flex *:cursor-pointer *:items-center *:justify-center *:gap-1 *:rounded-xl *:p-3 *:font-semibold">
-          <button class="bg-primary" @click="$emit('dismiss')">
-            <XIcon class="size-6" />
-            Cancel
-          </button>
-          <button
-            :class="colour"
-            @click="
-              () => {
-                confirmAction()
-                $emit('dismiss')
-              }
-            ">
-            <component :is="confirmIcon" class="size-5" />
-            {{ confirmText }}
-          </button>
+    <div class="fixed inset-0 z-[999] flex items-center justify-center p-4">
+      <Transition name="backdrop" appear>
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" @click="$emit('dismiss')" />
+      </Transition>
+
+      <Transition name="panel" appear>
+        <div class="bg-surface border-border/60 relative z-50 w-135 max-w-full rounded-2xl border p-6 shadow-2xl">
+          <h1 class="text-2xl font-semibold">{{ title }}</h1>
+          <p v-if="description" class="text-muted mt-1.5 text-sm">{{ description }}</p>
+
+          <div
+            class="mt-6 grid w-full grid-cols-2 gap-2 text-center *:flex *:cursor-pointer *:items-center *:justify-center *:gap-1.5 *:rounded-xl *:p-3 *:text-sm *:font-semibold *:transition *:hover:opacity-90">
+            <button class="bg-surface-2 text-foreground" @click="$emit('dismiss')">
+              <XIcon class="size-4" />
+              Cancel
+            </button>
+            <button
+              :class="[colour, 'text-white']"
+              @click="
+                () => {
+                  confirmAction()
+                  $emit('dismiss')
+                }
+              ">
+              <component :is="confirmIcon" class="size-4" />
+              {{ confirmText }}
+            </button>
+          </div>
         </div>
-      </div>
+      </Transition>
     </div>
   </Teleport>
 </template>
+
+<style scoped>
+.backdrop-enter-active,
+.backdrop-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.backdrop-enter-from,
+.backdrop-leave-to {
+  opacity: 0;
+}
+
+.panel-enter-active {
+  transition:
+    opacity 0.22s ease-out,
+    transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.panel-leave-active {
+  transition:
+    opacity 0.15s ease-in,
+    transform 0.15s ease-in;
+}
+
+.panel-enter-from,
+.panel-leave-to {
+  opacity: 0;
+  transform: scale(0.96) translateY(8px);
+}
+</style>

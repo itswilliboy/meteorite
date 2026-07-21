@@ -3,57 +3,97 @@ import { onMounted, ref } from "vue"
 
 import PageContainer from "@/components/PageContainer.vue"
 import Card from "@/components/Card.vue"
+import ImageOrVideo from "@/components/ImageOrVideo.vue"
 import useClient from "@/composables/useClient"
 
-import type { DashboardStats } from "@/utils/type"
+import { Images, Upload, HardDrive, Gauge, ArrowUpRight, ImageOff } from "lucide-vue-next"
+import { RouterLink } from "vue-router"
+import type { DashboardStats, Image } from "@/utils/type"
 
 const client = useClient()
 
 const data = ref<Option<DashboardStats>>(null)
+const recent = ref<Option<Image[]>>(null)
 
 onMounted(async () => {
-  data.value = await client.dashboardStats()
+  const [stats, images] = await Promise.all([client.dashboardStats(), client.getImages(0)])
+  data.value = stats
+  recent.value = images.data.slice(0, 6)
 })
 
 const formatBytesToMebibytes = (bytes: number): string => {
   const ONE_MEBIBYTE = 1_048_576
-  return new Intl.NumberFormat("en-GB").format(bytes / ONE_MEBIBYTE) + " MiB"
+  return new Intl.NumberFormat("en-GB").format(Math.round(bytes / ONE_MEBIBYTE)) + " MiB"
 }
+
+const stats = [
+  { key: "total_images", label: "Total Images", icon: Images, format: (v: number) => v.toLocaleString("en-GB") },
+  { key: "monthly_uploads", label: "Monthly Uploads", icon: Upload, format: (v: number) => v.toLocaleString("en-GB") },
+  { key: "storage_usage", label: "Storage Used", icon: HardDrive, format: formatBytesToMebibytes },
+  { key: "user_bandwidth", label: "Bandwidth", icon: Gauge, format: formatBytesToMebibytes }
+] as const
 </script>
 
 <template>
-  <PageContainer title="Dashboard" className="space-y-3">
-    <section class="flex w-full gap-3">
-      <Card class="leading-none">
-        <span class="text-sm font-semibold text-gray-500">Total Images</span>
-        <h1 class="text-2xl font-bold">{{ data ? data?.total_images : "Loading..." }}</h1>
-      </Card>
+  <PageContainer title="Dashboard" className="space-y-6">
+    <!-- Stats -->
+    <section class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <Card v-for="stat in stats" :key="stat.key" class="space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="text-muted text-xs font-semibold tracking-wide uppercase">{{ stat.label }}</span>
+          <component :is="stat.icon" :size="16" class="text-primary" />
+        </div>
 
-      <Card class="leading-none">
-        <span class="text-xs font-semibold text-gray-500">Monthly Uploads</span>
-        <h1 class="text-2xl font-bold">{{ data ? data?.monthly_uploads : "Loading..." }}</h1>
-      </Card>
-
-      <Card class="leading-none">
-        <span class="text-xs font-semibold text-gray-500">Storage Used</span>
-        <h1 class="text-2xl font-bold">
-          {{ data ? formatBytesToMebibytes(data?.storage_usage!) : "Loading..." }}
-        </h1>
-      </Card>
-
-      <Card class="leading-none">
-        <span class="text-xs font-semibold text-gray-500">Bandwidth</span>
-        <h1 class="text-2xl font-bold">{{ data ? formatBytesToMebibytes(data?.user_bandwidth!) : "Loading..." }}</h1>
+        <h2 v-if="data" class="text-2xl font-bold leading-none">{{ stat.format(data[stat.key]) }}</h2>
+        <div v-else class="bg-surface-2 h-6 w-2/3 animate-pulse rounded"></div>
       </Card>
     </section>
 
+    <!-- Recent uploads -->
     <section>
-      <Card class="py-24"></Card>
-    </section>
+      <div class="mb-3 flex items-center justify-between">
+        <h2 class="text-lg font-bold">Recent Uploads</h2>
+        <RouterLink
+          to="/dash/images"
+          class="text-primary flex items-center gap-1 text-sm font-semibold hover:underline">
+          View all
+          <ArrowUpRight :size="15" />
+        </RouterLink>
+      </div>
 
-    <section>
-      <Card class="pt-3">
-        <span class="text-xs font-semibold text-gray-500">Recent Activity</span>
+      <Card>
+        <!-- Loading -->
+        <div v-if="!recent" class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div v-for="n in 6" :key="n" class="bg-surface-2 aspect-square animate-pulse rounded-lg"></div>
+        </div>
+
+        <!-- Empty -->
+        <div v-else-if="recent.length === 0" class="text-muted flex flex-col items-center gap-2 py-12">
+          <ImageOff :size="32" />
+          <p class="text-sm">No uploads yet</p>
+          <RouterLink to="/dash/upload" class="text-primary text-sm font-semibold hover:underline">
+            Upload your first file
+          </RouterLink>
+        </div>
+
+        <!-- Grid -->
+        <div v-else class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <a
+            v-for="image in recent"
+            :key="image.id"
+            :href="image.url"
+            target="_blank"
+            class="group hover:ring-primary/40 border-border bg-surface-2 relative block aspect-square overflow-hidden rounded-lg ring-1 ring-black/5 transition dark:ring-white/5">
+            <ImageOrVideo :image="image" :preview="true" :thumbnail="true" class="[&>*]:!size-full [&>*]:!rounded-none" />
+
+            <!-- Hover overlay -->
+            <div
+              class="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-black/60 to-transparent p-2 pt-6 opacity-0 transition group-hover:opacity-100">
+              <span class="truncate text-xs font-medium text-white">{{ image.id }}</span>
+              <span class="shrink-0 text-xs text-white/80">{{ image.views }} views</span>
+            </div>
+          </a>
+        </div>
       </Card>
     </section>
   </PageContainer>

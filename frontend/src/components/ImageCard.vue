@@ -7,10 +7,14 @@ import useClient from "@/composables/useClient"
 import { ref } from "vue"
 import useToaster from "@/composables/useToaster"
 import ImageOrVideo from "./ImageOrVideo.vue"
-import { Trash2Icon } from "lucide-vue-next"
+import { CheckIcon, Trash2Icon } from "lucide-vue-next"
 import ConfirmDialogue from "./ConfirmDialogue.vue"
 
-const { image } = defineProps<{ image: Image }>()
+const { image, selectable = false, selected = false } = defineProps<{
+  image: Image
+  selectable?: boolean
+  selected?: boolean
+}>()
 
 const client = useClient()
 const { push } = useToaster()
@@ -20,6 +24,7 @@ const confirmOpen = ref<boolean>(false)
 
 const emit = defineEmits<{
   pop: [id: string]
+  "toggle-select": [id: string]
 }>()
 
 const deleteImage = () => {
@@ -27,13 +32,20 @@ const deleteImage = () => {
   emit("pop", image.id)
   push({ title: `Deleted ${image.id}`, delay: 4000, colour: "info" })
 }
+
+const onTileClick = () => {
+  if (selectable) emit("toggle-select", image.id)
+  else imageOpen.value = true
+}
 </script>
 
 <template>
-  <div class="group relative size-64 rounded-xl shadow-sm">
-    <Transition>
-      <ImageCardFull v-if="imageOpen" :image="image" @dismiss="imageOpen = false" @pop="$emit('pop', image.id)" />
-    </Transition>
+  <div
+    :class="[
+      'group relative aspect-square w-full overflow-hidden rounded-xl shadow-sm transition',
+      selected && 'ring-primary ring-3 ring-offset-2',
+    ]">
+    <ImageCardFull v-if="imageOpen" :image="image" @dismiss="imageOpen = false" @pop="$emit('pop', image.id)" />
     <ConfirmDialogue
       v-if="confirmOpen"
       @dismiss="confirmOpen = false"
@@ -44,33 +56,38 @@ const deleteImage = () => {
       :confirm-icon="Trash2Icon"
       :confirm-action="() => deleteImage()" />
     <ImageButtons
+      v-if="!selectable"
       :image="image"
       @delete="confirmOpen = true"
       class="pointer-events-none absolute top-2 right-2 z-10 opacity-0 transition-opacity duration-200 group-hover:pointer-events-auto group-hover:opacity-100" />
-    <div @click="imageOpen = true" class="cursor-pointer transition-all duration-200 hover:brightness-75">
-      <ImageOrVideo :image="image" :thumbnail="true" />
+    <div
+      v-if="selectable"
+      :class="[
+        'absolute top-2 left-2 z-10 grid size-6 place-items-center rounded-full border-2 shadow-sm transition',
+        selected ? 'bg-primary border-primary text-white' : 'border-white/80 bg-black/30',
+      ]">
+      <CheckIcon v-if="selected" :size="15" :stroke-width="3" />
     </div>
-    <div class="bg-background absolute bottom-0 flex min-h-12 w-full justify-between p-1">
-      <a :href="image.url" class="text-xl font-semibold hover:underline" target="_blank">{{ image.id }}</a>
-      <div class="flex flex-col text-right text-sm font-bold text-gray-400">
-        <p class="line-clamp-1">
-          {{ formatDistance(new Date(), new Date(image.date)).replace("about ", "") }}
-          ago
-        </p>
-        <p>{{ image.views }} views &middot; {{ image.mimetype.split("/")[1].toUpperCase() }}</p>
+    <div
+      @click="onTileClick"
+      class="size-full cursor-pointer transition-all duration-200 hover:brightness-90">
+      <ImageOrVideo :image="image" :thumbnail="true" class="!block size-full [&>*]:!size-full [&>*]:!rounded-none" />
+    </div>
+
+    <div class="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t from-black/75 via-black/35 to-transparent p-2.5 pt-8">
+      <a
+        :href="image.url"
+        target="_blank"
+        :title="image.filename ?? image.id"
+        class="pointer-events-auto block truncate text-sm font-semibold text-white hover:underline">
+        {{ image.filename ?? image.id }}
+      </a>
+      <div class="mt-0.5 flex items-center justify-between gap-2 text-[11px] font-medium text-white/70">
+        <span class="truncate">
+          {{ formatDistance(new Date(), new Date(image.date)).replace("about ", "") }} ago
+        </span>
+        <span class="shrink-0">{{ image.views }} views &middot; {{ image.mimetype.split("/")[1].toUpperCase() }}</span>
       </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-.v-enter-active,
-.v-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.v-enter-from,
-.v-leave-to {
-  opacity: 0;
-}
-</style>

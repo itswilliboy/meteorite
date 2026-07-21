@@ -13,7 +13,7 @@ defineEmits<{
 <template>
   <div>
     <div
-      class="relative min-h-10 w-80 overflow-hidden rounded-md bg-white p-4 shadow-xl"
+      class="border-border bg-surface relative min-h-10 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-md border p-4 shadow-xl"
       :style="`--duration: ${toast.delay}ms`">
       <span class="flex justify-between">
         <span :id="toast.delay ? 'stripe' : ''" class="absolute bottom-0 left-0 h-full w-1" :class="`${stripeColour}`" />

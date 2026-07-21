@@ -33,6 +33,17 @@ export type Image = {
   mimetype: string
   views: number
   url: string
+  filename: string | null
+  size: number
+  width: number | null
+  height: number | null
+  duration_ms: number | null
+  bitrate: number | null
+  codec: string | null
+  framerate: number | null
+  sample_rate: number | null
+  channels: number | null
+  has_cover: boolean
 }
 
 export type Colour = "info" | "success" | "warning" | "danger"
