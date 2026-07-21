@@ -1,7 +1,7 @@
 import { $fetch, type FetchOptions, type FetchRequest } from "ofetch"
 import { type Router } from "vue-router"
 
-import type { APIResponse, DashboardStats, Image, PaginatedResponse, User } from "./type"
+import type { APIResponse, DashboardStats, DashboardTimeseries, Image, PaginatedResponse, User } from "./type"
 
 export class HTTPException extends Error {
   status: number
@@ -71,6 +71,10 @@ export class Client {
 
   async dashboardStats(): Promise<DashboardStats> {
     return this.request<DashboardStats>("/api/stats")
+  }
+
+  async dashboardTimeseries(): Promise<DashboardTimeseries> {
+    return this.request<DashboardTimeseries>("/api/stats/timeseries")
   }
 
   async resetToken(): Promise<string> {

@@ -168,7 +168,12 @@ watch(isHovered, after => {
 </script>
 
 <template>
-  <span :class="preview ? '*:size-64 *:rounded-t-xl *:object-cover' : '*:size-full *:object-scale-down'">
+  <span
+    :class="
+      preview
+        ? '*:size-64 *:rounded-t-xl *:object-cover'
+        : 'flex size-full items-center justify-center overflow-hidden *:max-h-full *:max-w-full *:object-scale-down'
+    ">
     <video ref="v" v-if="isVideo && preview" :src="mediaUrl" preload="metadata">
       Failed to load video...
     </video>
@@ -299,23 +304,21 @@ watch(isHovered, after => {
       <!-- Full "now playing" view -->
       <div
         v-else
-        class="from-surface-2 to-surface flex size-full flex-col items-center justify-center gap-3 overflow-y-auto bg-linear-to-b p-4 sm:gap-8 sm:p-10">
-        <div
-          class="relative aspect-square w-full max-w-40 shrink overflow-hidden rounded-2xl shadow-2xl sm:max-w-[min(52vh,32rem)] sm:rounded-3xl">
+        class="from-surface-2 to-surface flex size-full flex-col items-center justify-center gap-6 overflow-y-auto bg-linear-to-b p-6 sm:gap-8 sm:p-10">
+        <div class="relative aspect-square w-full max-w-[min(52vh,32rem)] shrink overflow-hidden rounded-3xl shadow-2xl">
           <img v-if="coverUrl" :src="coverUrl" class="size-full object-cover" />
           <div v-else class="from-primary/25 to-primary/5 flex size-full items-center justify-center bg-linear-to-br">
-            <LucideMusic :size="64" :stroke-width="1.2" class="text-primary/40 sm:hidden" />
-            <LucideMusic :size="144" :stroke-width="1.2" class="text-primary/40 hidden sm:block" />
+            <LucideMusic :size="112" :stroke-width="1.2" class="text-primary/40" />
           </div>
         </div>
 
         <div class="w-full max-w-lg shrink-0">
-          <p v-if="image.filename" class="text-foreground w-full truncate text-center text-sm font-semibold sm:text-xl">
+          <p v-if="image.filename" class="text-foreground w-full truncate text-center text-lg font-semibold sm:text-xl">
             {{ image.filename }}
           </p>
 
-          <div class="mt-3 flex w-full items-center gap-3 sm:mt-8">
-            <span class="text-muted w-11 shrink-0 text-right text-xs tabular-nums sm:text-sm">{{ currentTimeLabel }}</span>
+          <div class="mt-6 flex w-full items-center gap-3 sm:mt-8">
+            <span class="text-muted w-11 shrink-0 text-right text-sm tabular-nums">{{ currentTimeLabel }}</span>
 
             <div class="bg-surface-2 group relative h-2 flex-1 rounded-full">
               <div class="bg-primary pointer-events-none absolute inset-y-0 left-0 rounded-full" :style="{ width: progress + '%' }" />
@@ -332,10 +335,10 @@ watch(isHovered, after => {
                 class="absolute inset-0 size-full cursor-pointer appearance-none opacity-0 [&::-moz-range-thumb]:size-0 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:border-0 [&::-webkit-slider-thumb]:size-0 [&::-webkit-slider-thumb]:appearance-none" />
             </div>
 
-            <span class="text-muted w-11 shrink-0 text-xs tabular-nums sm:text-sm">{{ durationLabel }}</span>
+            <span class="text-muted w-11 shrink-0 text-sm tabular-nums">{{ durationLabel }}</span>
           </div>
 
-          <div class="mt-3 flex w-full items-center justify-center gap-4 sm:mt-8 sm:gap-8">
+          <div class="mt-6 flex w-full items-center justify-center gap-6 sm:mt-8 sm:gap-8">
             <div class="flex items-center gap-2">
               <button
                 @click="toggleMute"
@@ -345,7 +348,7 @@ watch(isHovered, after => {
                 <Volume2 v-else :size="18" />
               </button>
 
-              <div class="bg-surface-2 relative h-2 w-20 rounded-full sm:w-28">
+              <div class="bg-surface-2 relative h-2 w-24 rounded-full sm:w-28">
                 <div
                   class="bg-muted pointer-events-none absolute inset-y-0 left-0 rounded-full"
                   :style="{ width: (muted ? 0 : volume * 100) + '%' }" />
@@ -363,14 +366,12 @@ watch(isHovered, after => {
             <button
               @click="togglePlay"
               :title="isPlaying ? 'Pause' : 'Play'"
-              class="bg-primary grid size-12 shrink-0 place-items-center rounded-full text-white shadow-lg transition hover:scale-105 hover:opacity-90 hover:cursor-pointer sm:size-20">
-              <LucidePause v-if="isPlaying" :size="20" class="sm:hidden" />
-              <LucidePlay v-else :size="20" class="ml-0.5 sm:hidden" />
-              <LucidePause v-if="isPlaying" :size="30" class="hidden sm:block" />
-              <LucidePlay v-else :size="30" class="ml-1 hidden sm:block" />
+              class="bg-primary grid size-16 shrink-0 place-items-center rounded-full text-white shadow-lg transition hover:scale-105 hover:opacity-90 hover:cursor-pointer sm:size-20">
+              <LucidePause v-if="isPlaying" :size="26" />
+              <LucidePlay v-else :size="26" class="ml-0.5" />
             </button>
 
-            <div class="w-[76px] sm:w-[112px]" />
+            <div class="w-[100px] sm:w-[112px]" />
           </div>
         </div>
       </div>

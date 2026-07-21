@@ -19,6 +19,17 @@ export type DashboardStats = {
   user_bandwidth: number
 }
 
+export type DailyStat = {
+  date: string
+  uploads: number
+  bytes: number
+}
+
+export type DashboardTimeseries = {
+  days: DailyStat[]
+  baseline_bytes: number
+}
+
 export type User = {
   id: number
   name: string

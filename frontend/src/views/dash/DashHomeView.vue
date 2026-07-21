@@ -1,30 +1,62 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue"
+import { computed, onActivated, onMounted, ref } from "vue"
 
 import PageContainer from "@/components/PageContainer.vue"
 import Card from "@/components/Card.vue"
 import ImageOrVideo from "@/components/ImageOrVideo.vue"
+import TrendChart from "@/components/TrendChart.vue"
 import useClient from "@/composables/useClient"
+import useMediaVersion from "@/composables/useMediaVersion"
+import { formatBytes } from "@/utils/format"
 
 import { Images, Upload, HardDrive, Gauge, ArrowUpRight, ImageOff } from "lucide-vue-next"
 import { RouterLink } from "vue-router"
-import type { DashboardStats, Image } from "@/utils/type"
+import type { DashboardStats, DashboardTimeseries, Image } from "@/utils/type"
+
+defineOptions({ name: "DashHomeView" })
 
 const client = useClient()
+const mediaVersion = useMediaVersion()
 
 const data = ref<Option<DashboardStats>>(null)
 const recent = ref<Option<Image[]>>(null)
+const timeseries = ref<Option<DashboardTimeseries>>(null)
 
-onMounted(async () => {
-  const [stats, images] = await Promise.all([client.dashboardStats(), client.getImages(0)])
+let loadedVersion = -1
+const loadDashboard = async () => {
+  const [stats, images, ts] = await Promise.all([client.dashboardStats(), client.getImages(0), client.dashboardTimeseries()])
   data.value = stats
   recent.value = images.data.slice(0, 6)
+  timeseries.value = ts
+  loadedVersion = mediaVersion.value
+}
+
+onMounted(loadDashboard)
+
+// Only refetch on revisit if media was actually uploaded/deleted elsewhere
+// since we last loaded — otherwise this stays a no-op, so switching back and
+// forth between pages doesn't keep re-requesting the same data.
+onActivated(() => {
+  if (mediaVersion.value !== loadedVersion) loadDashboard()
 })
 
 const formatBytesToMebibytes = (bytes: number): string => {
   const ONE_MEBIBYTE = 1_048_576
   return new Intl.NumberFormat("en-GB").format(Math.round(bytes / ONE_MEBIBYTE)) + " MiB"
 }
+
+const uploadLabels = computed(() => timeseries.value?.days.map(d => d.date) ?? [])
+const uploadValues = computed(() => timeseries.value?.days.map(d => d.uploads) ?? [])
+
+const storageValues = computed(() => {
+  const ts = timeseries.value
+  if (!ts) return []
+  let running = ts.baseline_bytes
+  return ts.days.map(d => {
+    running += d.bytes
+    return running
+  })
+})
 
 const stats = [
   { key: "total_images", label: "Total Images", icon: Images, format: (v: number) => v.toLocaleString("en-GB") },
@@ -46,6 +78,21 @@ const stats = [
 
         <h2 v-if="data" class="text-2xl font-bold leading-none">{{ stat.format(data[stat.key]) }}</h2>
         <div v-else class="bg-surface-2 h-6 w-2/3 animate-pulse rounded"></div>
+      </Card>
+    </section>
+
+    <!-- Trends -->
+    <section class="grid gap-4 lg:grid-cols-2">
+      <Card>
+        <h2 class="mb-4 text-sm font-semibold">Uploads (last 30 days)</h2>
+        <TrendChart v-if="timeseries" :labels="uploadLabels" :values="uploadValues" variant="bar" />
+        <div v-else class="bg-surface-2 h-40 w-full animate-pulse rounded"></div>
+      </Card>
+
+      <Card>
+        <h2 class="mb-4 text-sm font-semibold">Storage growth (last 30 days)</h2>
+        <TrendChart v-if="timeseries" :labels="uploadLabels" :values="storageValues" variant="area" :format-value="formatBytes" />
+        <div v-else class="bg-surface-2 h-40 w-full animate-pulse rounded"></div>
       </Card>
     </section>
 

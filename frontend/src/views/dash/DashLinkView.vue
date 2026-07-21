@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import PageContainer from "@/components/PageContainer.vue"
+
+defineOptions({ name: "DashLinkView" })
 </script>
 
 <template>

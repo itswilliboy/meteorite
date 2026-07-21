@@ -6,9 +6,12 @@ import FileDrop from "@/components/FileDrop.vue"
 import ConfirmDialogue from "@/components/ConfirmDialogue.vue"
 import useClient from "@/composables/useClient"
 import useToaster from "@/composables/useToaster"
+import { bumpMediaVersion } from "@/composables/useMediaVersion"
 import type { Image, PaginatedResponse } from "@/utils/type"
 import { computed, onMounted, ref } from "vue"
 import { ChevronLeft, ChevronRight, ListChecksIcon, Trash2Icon, XIcon } from "lucide-vue-next"
+
+defineOptions({ name: "DashImageView" })
 
 const client = useClient()
 const { push } = useToaster()
@@ -26,6 +29,9 @@ const allSelectedOnPage = computed(() => {
   return data.length > 0 && data.every(img => selected.value.has(img.id))
 })
 
+// This is the only view that ever mutates media, and it already keeps its own
+// list in sync locally on upload/delete — so a plain onMounted (kept alive by
+// <KeepAlive> in App.vue) is enough, no need to refetch on every revisit.
 onMounted(async () => {
   response.value = await client.getImages(0)
 })
@@ -64,6 +70,7 @@ const bulkDelete = async () => {
   push({ title: `Deleted ${ids.length} ${ids.length === 1 ? "item" : "items"}`, delay: 4000, colour: "info" })
   selected.value.clear()
   selectMode.value = false
+  bumpMediaVersion()
 }
 
 const uploadFiles = async (files: File[]) => {
@@ -96,6 +103,7 @@ const uploadFiles = async (files: File[]) => {
   // TODO: account for page
   response.value = await client.getImages(0)
   uploading.value = false
+  if (succeeded > 0) bumpMediaVersion()
 }
 </script>
 
@@ -187,6 +195,7 @@ const uploadFiles = async (files: File[]) => {
                 images.findIndex(img => img.id === id),
                 1
               )
+              bumpMediaVersion()
             }
           " />
       </template>

@@ -24,6 +24,8 @@ import useToaster from "@/composables/useToaster"
 import useTheme, { type Theme } from "@/composables/useTheme"
 import type { User } from "@/utils/type"
 
+defineOptions({ name: "DashSettingsView" })
+
 const client = useClient()
 const { push } = useToaster()
 const { theme, setTheme } = useTheme()

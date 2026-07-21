@@ -72,6 +72,7 @@ func main() {
 
 			r.Get("/ping", routes.DashboardPing)
 			r.Get("/stats", routes.DashboardStatistics)
+			r.Get("/stats/timeseries", routes.DashboardTimeseries)
 
 			r.Get("/get-images", routes.GetImages)
 			r.Post("/upload", routes.ImageUpload)

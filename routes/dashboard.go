@@ -4,6 +4,7 @@ import (
 	"errors"
 	"img/utils"
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -133,6 +134,88 @@ func DashboardStatistics(w http.ResponseWriter, r *http.Request) {
 
 	p := utils.JSONResponse{Status: http.StatusOK, Data: stats}
 	utils.WriteJSONBody(w, p)
+}
+
+type dailyStat struct {
+	Date    string `json:"date"`
+	Uploads int    `json:"uploads"`
+	Bytes   int64  `json:"bytes"`
+}
+
+type timeseriesResponse struct {
+	Days          []dailyStat `json:"days"`
+	BaselineBytes int64       `json:"baseline_bytes"`
+}
+
+func DashboardTimeseries(w http.ResponseWriter, r *http.Request) {
+	userID := utils.GetUserID(r)
+
+	const windowDays = 29
+
+	rows, err := utils.DB.Query(
+		r.Context(),
+		`
+			WITH days AS (
+				SELECT generate_series(
+					CURRENT_DATE - $2::int,
+					CURRENT_DATE,
+					'1 day'
+				)::date AS day
+			),
+			daily AS (
+				SELECT
+					date_trunc('day', date)::date AS day,
+					COUNT(*) AS uploads,
+					COALESCE(SUM(octet_length(data)), 0) AS bytes
+				FROM media
+				WHERE user_id = $1 AND date >= CURRENT_DATE - $2::int
+				GROUP BY 1
+			)
+			SELECT d.day, COALESCE(daily.uploads, 0), COALESCE(daily.bytes, 0)
+			FROM days d
+			LEFT JOIN daily ON daily.day = d.day
+			ORDER BY d.day;
+		`,
+		userID, windowDays,
+	)
+	if err != nil {
+		utils.InternalServerError(w, err)
+		return
+	}
+	defer rows.Close()
+
+	days := make([]dailyStat, 0, windowDays+1)
+	for rows.Next() {
+		var day time.Time
+		var stat dailyStat
+		if err := rows.Scan(&day, &stat.Uploads, &stat.Bytes); err != nil {
+			utils.InternalServerError(w, err)
+			return
+		}
+		stat.Date = day.Format("2006-01-02")
+		days = append(days, stat)
+	}
+	if err := rows.Err(); err != nil {
+		utils.InternalServerError(w, err)
+		return
+	}
+
+	var windowBytes, totalBytes int64
+	for _, d := range days {
+		windowBytes += d.Bytes
+	}
+	err = utils.DB.QueryRow(
+		r.Context(),
+		`SELECT COALESCE(SUM(octet_length(COALESCE(data, ''))), 0) FROM media WHERE user_id = $1`,
+		userID,
+	).Scan(&totalBytes)
+	if err != nil {
+		utils.InternalServerError(w, err)
+		return
+	}
+
+	resp := timeseriesResponse{Days: days, BaselineBytes: totalBytes - windowBytes}
+	utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusOK, Data: resp})
 }
 
 func DashboardPing(w http.ResponseWriter, r *http.Request) {
