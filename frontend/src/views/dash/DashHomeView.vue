@@ -34,9 +34,9 @@ const loadDashboard = async () => {
 
 onMounted(loadDashboard)
 
-// Only refetch on revisit if media was actually uploaded/deleted elsewhere
-// since we last loaded — otherwise this stays a no-op, so switching back and
-// forth between pages doesn't keep re-requesting the same data.
+// only refetch on revisit if media was actually uploaded/deleted elsewhere
+// since we last loaded, otherwise this stays a no-op, so switching
+// between pages doesn't refetch data
 onActivated(() => {
   if (mediaVersion.value !== loadedVersion) loadDashboard()
 })
@@ -89,7 +89,12 @@ const stats = [
 
       <Card>
         <h2 class="mb-4 text-sm font-semibold">Storage growth (last 30 days)</h2>
-        <TrendChart v-if="timeseries" :labels="uploadLabels" :values="storageValues" variant="area" :format-value="formatBytes" />
+        <TrendChart
+          v-if="timeseries"
+          :labels="uploadLabels"
+          :values="storageValues"
+          variant="area"
+          :format-value="formatBytes" />
         <div v-else class="bg-surface-2 h-40 w-full animate-pulse rounded"></div>
       </Card>
     </section>
@@ -98,9 +103,7 @@ const stats = [
     <section>
       <div class="mb-3 flex items-center justify-between">
         <h2 class="text-lg font-bold">Recent Uploads</h2>
-        <RouterLink
-          to="/dash/images"
-          class="text-primary flex items-center gap-1 text-sm font-semibold hover:underline">
+        <RouterLink to="/dash/images" class="text-primary flex items-center gap-1 text-sm font-semibold hover:underline">
           View all
           <ArrowUpRight :size="15" />
         </RouterLink>
