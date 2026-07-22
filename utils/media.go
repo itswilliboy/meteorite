@@ -142,7 +142,7 @@ func ExtractCoverArt(data []byte, ext string) ([]byte, error) {
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	if err := cmd.Run(); err != nil {
-		// No embedded video/picture stream — not a real error, just no cover art.
+		// no embedded video/picture stream
 		return nil, nil
 	}
 

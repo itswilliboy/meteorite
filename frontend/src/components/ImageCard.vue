@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Image } from "@/utils/type"
 import { formatDistance } from "date-fns"
+import { formatBytes } from "@/utils/format"
 import ImageButtons from "./ImageButtons.vue"
 import ImageCardFull from "./ImageCardFull.vue"
 import useClient from "@/composables/useClient"
@@ -86,7 +87,9 @@ const onTileClick = () => {
         <span class="truncate">
           {{ formatDistance(new Date(), new Date(image.date)).replace("about ", "") }} ago
         </span>
-        <span class="shrink-0">{{ image.views }} views &middot; {{ image.mimetype.split("/")[1].toUpperCase() }}</span>
+        <span class="shrink-0">
+          {{ image.views }} views &middot; {{ image.mimetype.split("/")[1].toUpperCase() }} &middot; {{ formatBytes(image.size) }}
+        </span>
       </div>
     </div>
   </div>

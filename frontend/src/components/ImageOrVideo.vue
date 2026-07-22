@@ -4,15 +4,7 @@ import { useMediaType } from "@/composables/useMediaType"
 import { useActiveMedia } from "@/composables/useActiveMedia"
 import type { Image } from "@/utils/type"
 import { computed, onMounted, ref, useTemplateRef, watch } from "vue"
-import {
-  LucideMusic,
-  LucidePlay,
-  LucidePause,
-  Volume2,
-  VolumeX,
-  FileText,
-  File as LucideFile,
-} from "lucide-vue-next"
+import { LucideMusic, LucidePlay, LucidePause, Volume2, VolumeX, FileText, File as LucideFile } from "lucide-vue-next"
 import { formatDuration } from "@/utils/format"
 
 const { image, preview = true, thumbnail = false } = defineProps<{ image: Image; preview?: boolean; thumbnail?: boolean }>()
@@ -105,8 +97,7 @@ const onLoadedMeta = () => {
 const onPlay = () => {
   isPlaying.value = true
   const m = mref.value
-  // Preview video tiles autoplay muted on hover — not a "listen", so they
-  // shouldn't interrupt whatever's actually playing elsewhere.
+  // hover preview shouldn't interrupt
   if (m && !(isVideo && preview)) setActive(m)
 }
 
@@ -174,9 +165,7 @@ watch(isHovered, after => {
         ? '*:size-64 *:rounded-t-xl *:object-cover'
         : 'flex size-full items-center justify-center overflow-hidden *:max-h-full *:max-w-full *:object-scale-down'
     ">
-    <video ref="v" v-if="isVideo && preview" :src="mediaUrl" preload="metadata">
-      Failed to load video...
-    </video>
+    <video ref="v" v-if="isVideo && preview" :src="mediaUrl" preload="metadata">Failed to load video...</video>
 
     <div v-else-if="isVideo" class="relative flex size-full items-center justify-center overflow-hidden rounded-xl bg-black">
       <video
@@ -191,20 +180,23 @@ watch(isHovered, after => {
         @ended="onEnded"
         class="max-h-full max-w-full cursor-pointer object-contain" />
 
-      <div class="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t from-black/85 via-black/40 to-transparent pt-10">
+      <div
+        class="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t from-black/85 via-black/40 to-transparent pt-10">
         <div class="pointer-events-auto flex w-full items-center gap-3 px-4 pb-3">
           <button
             @click="togglePlay"
             :title="isPlaying ? 'Pause' : 'Play'"
-            class="bg-primary grid size-9 shrink-0 place-items-center rounded-full text-white shadow-sm transition hover:opacity-90 hover:cursor-pointer">
+            class="bg-primary grid size-9 shrink-0 place-items-center rounded-full text-white shadow-sm transition hover:cursor-pointer hover:opacity-90">
             <LucidePause v-if="isPlaying" :size="16" />
             <LucidePlay v-else :size="16" class="ml-0.5" />
           </button>
 
-          <span class="w-9 shrink-0 text-right text-xs tabular-nums text-white/80">{{ currentTimeLabel }}</span>
+          <span class="w-9 shrink-0 text-right text-xs text-white/80 tabular-nums">{{ currentTimeLabel }}</span>
 
           <div class="group relative h-1.5 flex-1 rounded-full bg-white/25">
-            <div class="bg-primary pointer-events-none absolute inset-y-0 left-0 rounded-full" :style="{ width: progress + '%' }" />
+            <div
+              class="bg-primary pointer-events-none absolute inset-y-0 left-0 rounded-full"
+              :style="{ width: progress + '%' }" />
             <div
               class="bg-primary pointer-events-none absolute top-1/2 size-3 -translate-y-1/2 rounded-full shadow transition-transform group-hover:scale-110"
               :style="{ left: `calc(${progress}% - 6px)` }" />
@@ -218,12 +210,12 @@ watch(isHovered, after => {
               class="absolute inset-0 size-full cursor-pointer appearance-none opacity-0 [&::-moz-range-thumb]:size-0 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:border-0 [&::-webkit-slider-thumb]:size-0 [&::-webkit-slider-thumb]:appearance-none" />
           </div>
 
-          <span class="w-9 shrink-0 text-xs tabular-nums text-white/80">{{ durationLabel }}</span>
+          <span class="w-9 shrink-0 text-xs text-white/80 tabular-nums">{{ durationLabel }}</span>
 
           <button
             @click="toggleMute"
             :title="muted ? 'Unmute' : 'Mute'"
-            class="shrink-0 text-white/80 hover:text-white hover:cursor-pointer">
+            class="shrink-0 text-white/80 hover:cursor-pointer hover:text-white">
             <VolumeX v-if="muted || volume === 0" :size="16" />
             <Volume2 v-else :size="16" />
           </button>
@@ -258,10 +250,14 @@ watch(isHovered, after => {
       </div>
       <div v-else class="bg-surface-2 flex size-full flex-col overflow-hidden rounded-xl">
         <div v-if="textLoading" class="text-muted grid size-full place-items-center text-sm">Loading preview...</div>
-        <div v-else-if="textError" class="text-muted grid size-full place-items-center text-sm">Couldn't load a preview.</div>
+        <div v-else-if="textError" class="text-muted grid size-full place-items-center text-sm">
+          Couldn't load a preview.
+        </div>
         <pre
           v-else
-          class="text-foreground size-full overflow-auto p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap">{{ textContent }}</pre>
+          class="text-foreground size-full overflow-auto p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap"
+          >{{ textContent }}</pre
+        >
       </div>
     </div>
 
@@ -321,7 +317,9 @@ watch(isHovered, after => {
             <span class="text-muted w-11 shrink-0 text-right text-sm tabular-nums">{{ currentTimeLabel }}</span>
 
             <div class="bg-surface-2 group relative h-2 flex-1 rounded-full">
-              <div class="bg-primary pointer-events-none absolute inset-y-0 left-0 rounded-full" :style="{ width: progress + '%' }" />
+              <div
+                class="bg-primary pointer-events-none absolute inset-y-0 left-0 rounded-full"
+                :style="{ width: progress + '%' }" />
               <div
                 class="bg-primary pointer-events-none absolute top-1/2 size-4 -translate-y-1/2 rounded-full shadow transition-transform group-hover:scale-110"
                 :style="{ left: `calc(${progress}% - 8px)` }" />
@@ -366,7 +364,7 @@ watch(isHovered, after => {
             <button
               @click="togglePlay"
               :title="isPlaying ? 'Pause' : 'Play'"
-              class="bg-primary grid size-16 shrink-0 place-items-center rounded-full text-white shadow-lg transition hover:scale-105 hover:opacity-90 hover:cursor-pointer sm:size-20">
+              class="bg-primary grid size-16 shrink-0 place-items-center rounded-full text-white shadow-lg transition hover:scale-105 hover:cursor-pointer hover:opacity-90 sm:size-20">
               <LucidePause v-if="isPlaying" :size="26" />
               <LucidePlay v-else :size="26" class="ml-0.5" />
             </button>

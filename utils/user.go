@@ -155,7 +155,7 @@ func CreateDashSessionCookie(user User) http.Cookie {
 	}
 }
 
-// this is for cookie invalidation on the browser.
+// this is for cookie invalidation on the browser
 func CreateInvalidDashSessionCookie() http.Cookie {
 	return http.Cookie{
 		Name:     DASH_COOKIE_NAME,

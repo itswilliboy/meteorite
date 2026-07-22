@@ -8,6 +8,7 @@ import ConfirmDialogue from "@/components/ConfirmDialogue.vue"
 import useClient from "@/composables/useClient"
 import useToaster from "@/composables/useToaster"
 import { bumpMediaVersion } from "@/composables/useMediaVersion"
+import { formatBytes } from "@/utils/format"
 import type { Image, PaginatedResponse } from "@/utils/type"
 import { computed, onMounted, ref } from "vue"
 import { ListChecksIcon, Trash2Icon, XIcon } from "lucide-vue-next"
@@ -23,6 +24,7 @@ const uploadProgress = ref({ done: 0, total: 0 })
 
 const selectMode = ref(false)
 const selected = ref<Set<string>>(new Set())
+const selectedSizes = ref<Map<string, number>>(new Map())
 const bulkConfirmOpen = ref(false)
 
 const allSelectedOnPage = computed(() => {
@@ -30,9 +32,11 @@ const allSelectedOnPage = computed(() => {
   return data.length > 0 && data.every(img => selected.value.has(img.id))
 })
 
-// This is the only view that ever mutates media, and it already keeps its own
-// list in sync locally on upload/delete — so a plain onMounted (kept alive by
-// <KeepAlive> in App.vue) is enough, no need to refetch on every revisit.
+const selectedSize = computed(() => [...selectedSizes.value.values()].reduce((total, size) => total + size, 0))
+
+// this is the only view that ever mutates media, and already keeps its own
+// list in sync locally on upload/delete, so a plain onMounted (kept alive by
+// <KeepAlive>) is enough, no need to refetch
 onMounted(async () => {
   response.value = await client.getImages(0)
 })
@@ -44,19 +48,32 @@ const setPage = async (page: number) => {
 const toggleSelectMode = () => {
   selectMode.value = !selectMode.value
   selected.value.clear()
+  selectedSizes.value.clear()
 }
 
 const toggleSelect = (id: string) => {
-  if (selected.value.has(id)) selected.value.delete(id)
-  else selected.value.add(id)
+  if (selected.value.has(id)) {
+    selected.value.delete(id)
+    selectedSizes.value.delete(id)
+  } else {
+    selected.value.add(id)
+    const image = response.value?.data.find(img => img.id === id)
+    if (image) selectedSizes.value.set(id, image.size)
+  }
 }
 
 const toggleSelectAllOnPage = () => {
   const data = response.value?.data ?? []
   if (allSelectedOnPage.value) {
-    data.forEach(img => selected.value.delete(img.id))
+    data.forEach(img => {
+      selected.value.delete(img.id)
+      selectedSizes.value.delete(img.id)
+    })
   } else {
-    data.forEach(img => selected.value.add(img.id))
+    data.forEach(img => {
+      selected.value.add(img.id)
+      selectedSizes.value.set(img.id, img.size)
+    })
   }
 }
 
@@ -70,6 +87,7 @@ const bulkDelete = async () => {
 
   push({ title: `Deleted ${ids.length} ${ids.length === 1 ? "item" : "items"}`, delay: 4000, colour: "info" })
   selected.value.clear()
+  selectedSizes.value.clear()
   selectMode.value = false
   bumpMediaVersion()
 }
@@ -114,7 +132,7 @@ const uploadFiles = async (files: File[]) => {
       v-if="bulkConfirmOpen"
       @dismiss="bulkConfirmOpen = false"
       title="Delete selected?"
-      :description="`This will permanently delete ${selected.size} ${selected.size === 1 ? 'item' : 'items'}.`"
+      :description="`This will permanently delete ${selected.size} ${selected.size === 1 ? 'item' : 'items'} (${formatBytes(selectedSize)}).`"
       confirm-text="Delete"
       confirm-colour="danger"
       :confirm-icon="Trash2Icon"
@@ -133,7 +151,7 @@ const uploadFiles = async (files: File[]) => {
           'flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition hover:cursor-pointer',
           selectMode
             ? 'bg-primary border-primary text-white'
-            : 'border-border bg-surface text-muted hover:bg-surface-2 hover:text-foreground',
+            : 'border-border bg-surface text-muted hover:bg-surface-2 hover:text-foreground'
         ]">
         <XIcon v-if="selectMode" :size="16" />
         <ListChecksIcon v-else :size="16" />
@@ -147,10 +165,17 @@ const uploadFiles = async (files: File[]) => {
         class="bg-surface border-border mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3">
         <div class="flex items-center gap-3">
           <label class="flex items-center gap-2 text-sm font-medium hover:cursor-pointer">
-            <input type="checkbox" :checked="allSelectedOnPage" @change="toggleSelectAllOnPage" class="accent-primary size-4" />
+            <input
+              type="checkbox"
+              :checked="allSelectedOnPage"
+              @change="toggleSelectAllOnPage"
+              class="accent-primary size-4" />
             Select all on page
           </label>
-          <span class="text-muted text-sm">{{ selected.size }} selected</span>
+          <span class="text-muted text-sm">
+            {{ selected.size }} selected
+            <template v-if="selected.size > 0">&middot; {{ formatBytes(selectedSize) }}</template>
+          </span>
         </div>
 
         <Button variant="danger" :icon="Trash2Icon" :disabled="selected.size === 0" @click="bulkConfirmOpen = true">
