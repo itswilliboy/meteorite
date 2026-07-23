@@ -369,7 +369,7 @@ watch(isHovered, after => {
               <LucidePlay v-else :size="26" class="ml-0.5" />
             </button>
 
-            <div class="w-[100px] sm:w-[112px]" />
+            <div class="w-25 sm:w-28" />
           </div>
         </div>
       </div>
