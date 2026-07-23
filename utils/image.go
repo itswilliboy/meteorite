@@ -3,6 +3,8 @@ package utils
 import (
 	"bytes"
 	"image"
+	"image/jpeg"
+	"image/png"
 	"strconv"
 
 	"golang.org/x/image/draw"
@@ -67,4 +69,27 @@ func ResizeImage(data []byte, targetWidth string) (image.Image, error) {
 	draw.CatmullRom.Scale(dest, dest.Bounds(), img, bounds, draw.Over, nil)
 
 	return dest, nil
+}
+
+func ResizeAndEncode(data []byte, targetWidth string) ([]byte, string, error) {
+	img, err := ResizeImage(data, targetWidth)
+	if err != nil {
+		return nil, "", err
+	}
+
+	var out bytes.Buffer
+	var contentType string
+
+	if HasAlpha(img) {
+		contentType = "image/png"
+		err = png.Encode(&out, img)
+	} else {
+		contentType = "image/jpeg"
+		err = jpeg.Encode(&out, img, &jpeg.Options{Quality: 60})
+	}
+	if err != nil {
+		return nil, "", err
+	}
+
+	return out.Bytes(), contentType, nil
 }

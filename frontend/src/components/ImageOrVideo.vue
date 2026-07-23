@@ -54,7 +54,7 @@ const coverUrl = computed(() => {
   if (!isAudio || !image.has_cover) return null
 
   const url = new URL(image.url)
-  url.search = new URLSearchParams({ cover: "true" }).toString()
+  url.search = new URLSearchParams({ cover: "true", width: thumbnail ? "160" : "512" }).toString()
   return url.toString()
 })
 

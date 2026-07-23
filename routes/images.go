@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"image/jpeg"
-	"image/png"
 	"img/utils"
 	"io"
 	"log"
@@ -199,10 +197,20 @@ func ImageGet(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		coverMime := mimetype.Detect(coverArt)
-		w.Header().Set("Content-Type", coverMime.String())
+		width := r.URL.Query().Get("width")
+		if width == "" {
+			width = "512"
+		}
+
+		resized, contentType, err := utils.ResizeAndEncode(coverArt, width)
+		if err != nil {
+			utils.InternalServerError(w, err)
+			return
+		}
+
+		w.Header().Set("Content-Type", contentType)
 		w.Header().Set("Cache-Control", "public, max-age=86400")
-		w.Write(coverArt)
+		http.ServeContent(w, r, "", time.Time{}, bytes.NewReader(resized))
 		return
 	}
 
@@ -249,28 +257,14 @@ func ImageGet(w http.ResponseWriter, r *http.Request) {
 	width := r.URL.Query().Get("width")
 
 	if width != "" {
-		img, err := utils.ResizeImage(imageData, width)
+		resized, contentType, err := utils.ResizeAndEncode(imageData, width)
 		if err != nil {
 			utils.InternalServerError(w, err)
 			return
 		}
 
-		var out bytes.Buffer
-
-		if utils.HasAlpha(img) {
-			w.Header().Set("Content-Type", "image/png")
-			err = png.Encode(&out, img)
-		} else {
-			w.Header().Set("Content-Type", "image/jpeg")
-			err = jpeg.Encode(&out, img, &jpeg.Options{Quality: 60})
-		}
-
-		if err != nil {
-			utils.InternalServerError(w, err)
-			return
-		}
-
-		imageData = out.Bytes()
+		w.Header().Set("Content-Type", contentType)
+		imageData = resized
 	} else {
 		w.Header().Set("Content-Type", mimeType)
 	}
