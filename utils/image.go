@@ -23,12 +23,36 @@ func clamp(value, low, high int) int {
 }
 
 func HasAlpha(img image.Image) bool {
-	switch img.(type) {
-	case *image.NRGBA, *image.NRGBA64, *image.RGBA, *image.RGBA64:
-		return true
+	switch v := img.(type) {
+	case *image.NRGBA:
+		return pixHasAlpha8(v.Pix)
+	case *image.RGBA:
+		return pixHasAlpha8(v.Pix)
+	case *image.NRGBA64:
+		return pixHasAlpha16(v.Pix)
+	case *image.RGBA64:
+		return pixHasAlpha16(v.Pix)
 	default:
 		return false
 	}
+}
+
+func pixHasAlpha8(pix []byte) bool {
+	for i := 3; i < len(pix); i += 4 {
+		if pix[i] != 0xff {
+			return true
+		}
+	}
+	return false
+}
+
+func pixHasAlpha16(pix []byte) bool {
+	for i := 6; i+1 < len(pix); i += 8 {
+		if pix[i] != 0xff || pix[i+1] != 0xff {
+			return true
+		}
+	}
+	return false
 }
 
 func parseWidth(width string) int {
