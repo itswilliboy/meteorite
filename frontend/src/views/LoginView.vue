@@ -1,17 +1,19 @@
 <script setup lang="ts">
 import { ref } from "vue"
 import { useRouter } from "vue-router"
+import { startAuthentication } from "@simplewebauthn/browser"
 
 import InputBar from "@/components/InputBar.vue"
 import { Button } from "@/components/common"
 import useClient from "@/composables/useClient"
-import { Eye, EyeOff } from "lucide-vue-next"
+import { Eye, EyeOff, KeyRound } from "lucide-vue-next"
 
 const router = useRouter()
 const client = useClient()
 
 const showPassword = ref(false)
 const loading = ref(false)
+const passkeyLoading = ref(false)
 const error = ref<Option<string>>(null)
 
 const loginCallback = async (e: Event) => {
@@ -31,6 +33,28 @@ const loginCallback = async (e: Event) => {
     error.value = "Invalid username or password"
   } finally {
     loading.value = false
+  }
+}
+
+const passkeyLogin = async () => {
+  if (passkeyLoading.value) return
+
+  error.value = null
+  passkeyLoading.value = true
+
+  try {
+    const optionsJSON = await client.webauthnLoginBegin()
+    const response = await startAuthentication({ optionsJSON })
+    const user = await client.webauthnLoginFinish(response)
+    localStorage.setItem("user", JSON.stringify(user))
+    router.push("/dash")
+  } catch (e) {
+    // the user simply dismissed the passkey prompt - not an error worth showing
+    if ((e as Error)?.name !== "NotAllowedError") {
+      error.value = "Passkey sign-in failed"
+    }
+  } finally {
+    passkeyLoading.value = false
   }
 }
 </script>
@@ -84,6 +108,22 @@ const loginCallback = async (e: Event) => {
 
         <Button type="submit" :loading="loading" class="focus:ring-primary/40 w-full focus:ring-2 focus:outline-none">
           {{ loading ? "Signing in..." : "Sign in" }}
+        </Button>
+
+        <div class="flex items-center gap-3">
+          <div class="border-border h-px flex-1 border-t" />
+          <span class="text-muted text-xs">or</span>
+          <div class="border-border h-px flex-1 border-t" />
+        </div>
+
+        <Button
+          type="button"
+          variant="secondary"
+          :icon="KeyRound"
+          :loading="passkeyLoading"
+          class="w-full"
+          @click="passkeyLogin">
+          {{ passkeyLoading ? "Waiting for passkey..." : "Sign in with a passkey" }}
         </Button>
       </form>
     </div>

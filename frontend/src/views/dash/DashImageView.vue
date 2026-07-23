@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Card from "@/components/Card.vue"
-import { Button, PaginationControls } from "@/components/common"
+import { Button } from "@/components/common"
 import ImageCard from "@/components/ImageCard.vue"
 import PageContainer from "@/components/PageContainer.vue"
 import FileDrop from "@/components/FileDrop.vue"
@@ -8,17 +8,22 @@ import ConfirmDialogue from "@/components/ConfirmDialogue.vue"
 import useClient from "@/composables/useClient"
 import useToaster from "@/composables/useToaster"
 import { bumpMediaVersion } from "@/composables/useMediaVersion"
+import { useInfiniteScroll } from "@/composables/useInfiniteScroll"
 import { formatBytes } from "@/utils/format"
-import type { Image, PaginatedResponse } from "@/utils/type"
-import { computed, onMounted, ref } from "vue"
-import { ListChecksIcon, Trash2Icon, XIcon } from "lucide-vue-next"
+import type { Image } from "@/utils/type"
+import { computed, nextTick, ref, useTemplateRef } from "vue"
+import { ListChecksIcon, LucideLoader2, Trash2Icon, XIcon } from "lucide-vue-next"
 
 defineOptions({ name: "DashImageView" })
 
 const client = useClient()
 const { push } = useToaster()
 
-const response = ref<PaginatedResponse<Image[]> | null>(null)
+const images = ref<Image[]>([])
+const page = ref(-1)
+const hasNext = ref(true)
+const loadingMore = ref(false)
+
 const uploading = ref(false)
 const uploadProgress = ref({ done: 0, total: 0 })
 
@@ -27,22 +32,34 @@ const selected = ref<Set<string>>(new Set())
 const selectedSizes = ref<Map<string, number>>(new Map())
 const bulkConfirmOpen = ref(false)
 
-const allSelectedOnPage = computed(() => {
-  const data = response.value?.data ?? []
-  return data.length > 0 && data.every(img => selected.value.has(img.id))
-})
+const allSelectedLoaded = computed(() => images.value.length > 0 && images.value.every(img => selected.value.has(img.id)))
 
 const selectedSize = computed(() => [...selectedSizes.value.values()].reduce((total, size) => total + size, 0))
 
-// this is the only view that ever mutates media, and already keeps its own
-// list in sync locally on upload/delete, so a plain onMounted (kept alive by
-// <KeepAlive>) is enough, no need to refetch
-onMounted(async () => {
-  response.value = await client.getImages(0)
-})
+const loadMore = async (): Promise<boolean> => {
+  if (loadingMore.value || !hasNext.value) return false
 
-const setPage = async (page: number) => {
-  response.value = await client.getImages(page)
+  loadingMore.value = true
+  try {
+    const resp = await client.getImages(page.value + 1)
+    images.value.push(...resp.data)
+    page.value = resp.page
+    hasNext.value = resp.hasNext
+    return true
+  } finally {
+    loadingMore.value = false
+  }
+}
+
+const sentinel = useTemplateRef<HTMLDivElement>("sentinel")
+const { refresh } = useInfiniteScroll(sentinel, loadMore)
+
+const resetAndReload = async () => {
+  images.value = []
+  page.value = -1
+  hasNext.value = true
+  await nextTick()
+  refresh()
 }
 
 const toggleSelectMode = () => {
@@ -57,20 +74,19 @@ const toggleSelect = (id: string) => {
     selectedSizes.value.delete(id)
   } else {
     selected.value.add(id)
-    const image = response.value?.data.find(img => img.id === id)
+    const image = images.value.find(img => img.id === id)
     if (image) selectedSizes.value.set(id, image.size)
   }
 }
 
-const toggleSelectAllOnPage = () => {
-  const data = response.value?.data ?? []
-  if (allSelectedOnPage.value) {
-    data.forEach(img => {
+const toggleSelectAllLoaded = () => {
+  if (allSelectedLoaded.value) {
+    images.value.forEach(img => {
       selected.value.delete(img.id)
       selectedSizes.value.delete(img.id)
     })
   } else {
-    data.forEach(img => {
+    images.value.forEach(img => {
       selected.value.add(img.id)
       selectedSizes.value.set(img.id, img.size)
     })
@@ -81,9 +97,7 @@ const bulkDelete = async () => {
   const ids = [...selected.value]
   await Promise.all(ids.map(id => client.deleteImage(id)))
 
-  if (response.value) {
-    response.value.data = response.value.data.filter(img => !selected.value.has(img.id))
-  }
+  images.value = images.value.filter(img => !selected.value.has(img.id))
 
   push({ title: `Deleted ${ids.length} ${ids.length === 1 ? "item" : "items"}`, delay: 4000, colour: "info" })
   selected.value.clear()
@@ -119,8 +133,7 @@ const uploadFiles = async (files: File[]) => {
     push({ title: `Failed to upload: ${failed.join(", ")}`, colour: "danger", delay: 6000 })
   }
 
-  // TODO: account for page
-  response.value = await client.getImages(0)
+  await resetAndReload()
   uploading.value = false
   if (succeeded > 0) bumpMediaVersion()
 }
@@ -138,13 +151,7 @@ const uploadFiles = async (files: File[]) => {
       :confirm-icon="Trash2Icon"
       :confirm-action="() => bulkDelete()" />
 
-    <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-      <PaginationControls
-        :page="response?.page ?? 0"
-        :has-prev="response?.hasPrev ?? false"
-        :has-next="response?.hasNext ?? false"
-        @update:page="setPage" />
-
+    <div class="mb-4 flex flex-wrap items-center justify-end gap-2">
       <button
         @click="toggleSelectMode"
         :class="[
@@ -167,10 +174,10 @@ const uploadFiles = async (files: File[]) => {
           <label class="flex items-center gap-2 text-sm font-medium hover:cursor-pointer">
             <input
               type="checkbox"
-              :checked="allSelectedOnPage"
-              @change="toggleSelectAllOnPage"
+              :checked="allSelectedLoaded"
+              @change="toggleSelectAllLoaded"
               class="accent-primary size-4" />
-            Select all on page
+            Select all loaded
           </label>
           <span class="text-muted text-sm">
             {{ selected.size }} selected
@@ -187,26 +194,27 @@ const uploadFiles = async (files: File[]) => {
     <Card class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8">
       <FileDrop v-if="!selectMode" :uploading="uploading" :progress="uploadProgress" @selected-files="uploadFiles" />
 
-      <template v-if="response">
-        <ImageCard
-          v-for="image in response!.data"
-          :image="image"
-          :key="image.id"
-          :selectable="selectMode"
-          :selected="selected.has(image.id)"
-          @toggle-select="toggleSelect"
-          @pop="
-            id => {
-              const images = response!.data
-              images.splice(
-                images.findIndex(img => img.id === id),
-                1
-              )
-              bumpMediaVersion()
-            }
-          " />
-      </template>
+      <ImageCard
+        v-for="image in images"
+        :image="image"
+        :key="image.id"
+        :selectable="selectMode"
+        :selected="selected.has(image.id)"
+        @toggle-select="toggleSelect"
+        @pop="
+          id => {
+            images.splice(
+              images.findIndex(img => img.id === id),
+              1
+            )
+            bumpMediaVersion()
+          }
+        " />
     </Card>
+
+    <div ref="sentinel" class="flex h-10 items-center justify-center">
+      <LucideLoader2 v-if="loadingMore" :size="20" class="text-muted animate-spin" />
+    </div>
   </PageContainer>
 </template>
 

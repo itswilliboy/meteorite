@@ -172,21 +172,25 @@ func ReadJSONBody[T any](writer http.ResponseWriter, body io.ReadCloser, maxSize
 type JSONResponse struct {
 	Status int `json:"status"`
 	Data   any `json:"data"`
-
-	Page     int  `json:"page,omitempty"`
-	PageSize int  `json:"pageSize,omitempty"`
-	HasNext  bool `json:"hasNext,omitempty"`
-	HasPrev  bool `json:"hasPrev,omitempty"`
 }
 
-func WriteJSONBody(writer http.ResponseWriter, payload JSONResponse) error {
+type PaginatedJSONResponse struct {
+	JSONResponse
+
+	Page     int  `json:"page"`
+	PageSize int  `json:"pageSize"`
+	HasNext  bool `json:"hasNext"`
+	HasPrev  bool `json:"hasPrev"`
+}
+
+func writeJSON(writer http.ResponseWriter, status int, payload any) error {
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
 
 	writer.Header().Add("Content-Type", "application/json")
-	writer.WriteHeader(payload.Status)
+	writer.WriteHeader(status)
 
 	_, err = writer.Write(data)
 	if err != nil {
@@ -194,6 +198,14 @@ func WriteJSONBody(writer http.ResponseWriter, payload JSONResponse) error {
 	}
 
 	return nil
+}
+
+func WriteJSONBody(writer http.ResponseWriter, payload JSONResponse) error {
+	return writeJSON(writer, payload.Status, payload)
+}
+
+func WritePaginatedJSONBody(writer http.ResponseWriter, payload PaginatedJSONResponse) error {
+	return writeJSON(writer, payload.Status, payload)
 }
 
 func GetUserID(r *http.Request) int {

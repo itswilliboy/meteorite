@@ -98,13 +98,12 @@ func AdminListUsers(w http.ResponseWriter, r *http.Request) {
 		users = users[:pageSize]
 	}
 
-	utils.WriteJSONBody(w, utils.JSONResponse{
-		Status:   http.StatusOK,
-		Data:     users,
-		Page:     page,
-		PageSize: pageSize,
-		HasNext:  hasNext,
-		HasPrev:  hasPrev,
+	utils.WritePaginatedJSONBody(w, utils.PaginatedJSONResponse{
+		JSONResponse: utils.JSONResponse{Status: http.StatusOK, Data: users},
+		Page:         page,
+		PageSize:     pageSize,
+		HasNext:      hasNext,
+		HasPrev:      hasPrev,
 	})
 }
 

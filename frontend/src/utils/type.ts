@@ -69,6 +69,12 @@ export type Image = {
   has_cover: boolean
 }
 
+export type Passkey = {
+  id: string
+  name: string
+  created_at: Date
+}
+
 export type Colour = "info" | "success" | "warning" | "danger"
 
 export type Toast = {

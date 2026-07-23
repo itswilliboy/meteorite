@@ -105,10 +105,10 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 }
 
 type dashboardStatistics struct {
-	TotalImages    int `json:"total_images"`
-	StorageUsage   int `json:"storage_usage"`
-	MonthlyUploads int `json:"monthly_uploads"`
-	UserBandwidth  int `json:"user_bandwidth"`
+	TotalImages    int   `json:"total_images"`
+	StorageUsage   int64 `json:"storage_usage"`
+	MonthlyUploads int   `json:"monthly_uploads"`
+	UserBandwidth  int64 `json:"user_bandwidth"`
 }
 
 func DashboardStatistics(w http.ResponseWriter, r *http.Request) {
@@ -120,7 +120,8 @@ func DashboardStatistics(w http.ResponseWriter, r *http.Request) {
 			COUNT(*) FILTER (
 				WHERE date >= date_trunc('month', CURRENT_DATE)
 			),
-			COALESCE(SUM(COALESCE(octet_length(data), 0) * COALESCE(views, 0)), 0)
+			COALESCE(SUM(COALESCE(octet_length(data), 0)::bigint * COALESCE(views, 0)), 0)
+				+ COALESCE((SELECT bandwidth FROM users WHERE id = $1), 0)
 		FROM media
 		WHERE user_id = $1
 	`

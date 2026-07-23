@@ -50,6 +50,10 @@ func main() {
 
 	utils.RunDBMigrations()
 
+	if err := utils.InitWebAuthn(); err != nil {
+		utils.CheckError(err)
+	}
+
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 
@@ -64,6 +68,9 @@ func main() {
 		r.Post("/register", routes.RegisterUser)
 		r.Post("/login", routes.LoginUser)
 
+		r.Post("/webauthn/login/begin", routes.WebAuthnLoginBegin)
+		r.Post("/webauthn/login/finish", routes.WebAuthnLoginFinish)
+
 		r.Group(func(r chi.Router) {
 			r.Use(DashAuthMiddleware)
 
@@ -77,6 +84,11 @@ func main() {
 			r.Get("/get-images", routes.GetImages)
 			r.Post("/upload", routes.ImageUpload)
 			r.Post("/delete-image", routes.DeleteImage)
+
+			r.Post("/webauthn/register/begin", routes.WebAuthnRegisterBegin)
+			r.Post("/webauthn/register/finish", routes.WebAuthnRegisterFinish)
+			r.Get("/webauthn/credentials", routes.WebAuthnListCredentials)
+			r.Post("/webauthn/credentials/{id}/delete", routes.WebAuthnDeleteCredential)
 		})
 
 		r.Route("/admin", func(r chi.Router) {

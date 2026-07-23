@@ -360,13 +360,12 @@ func GetImages(w http.ResponseWriter, r *http.Request) {
 		images = images[:pageSize]
 	}
 
-	utils.WriteJSONBody(w, utils.JSONResponse{
-		Status:   http.StatusOK,
-		Data:     images,
-		Page:     page,
-		PageSize: pageSize,
-		HasNext:  hasNext,
-		HasPrev:  hasPrev,
+	utils.WritePaginatedJSONBody(w, utils.PaginatedJSONResponse{
+		JSONResponse: utils.JSONResponse{Status: http.StatusOK, Data: images},
+		Page:         page,
+		PageSize:     pageSize,
+		HasNext:      hasNext,
+		HasPrev:      hasPrev,
 	})
 }
 
@@ -374,20 +373,30 @@ func DeleteImage(w http.ResponseWriter, r *http.Request) {
 	userID := utils.GetUserID(r)
 	imageID := r.URL.Query().Get("id")
 
-	tag, err := utils.DB.Exec(
+	var deleted bool
+	err := utils.DB.QueryRow(
 		r.Context(),
 		`
-			DELETE FROM media
-			WHERE id = $1
-			AND user_id = $2
+			WITH removed AS (
+				DELETE FROM media
+				WHERE id = $1 AND user_id = $2
+				RETURNING COALESCE(octet_length(data), 0)::bigint * COALESCE(views, 0) AS bandwidth
+			),
+			bumped AS (
+				UPDATE users
+				SET bandwidth = bandwidth + COALESCE((SELECT SUM(bandwidth) FROM removed), 0)
+				WHERE id = $2 AND EXISTS (SELECT 1 FROM removed)
+			)
+			SELECT EXISTS (SELECT 1 FROM removed)
 		`,
 		imageID, userID,
-	)
+	).Scan(&deleted)
 	if err != nil {
 		utils.InternalServerError(w, err)
 		return
 	}
-	if tag.RowsAffected() == 1 {
+
+	if deleted {
 		utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusOK})
 		return
 	}

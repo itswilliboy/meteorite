@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue"
+import { startRegistration } from "@simplewebauthn/browser"
 
 import PageContainer from "@/components/PageContainer.vue"
 import Card from "@/components/Card.vue"
+import ConfirmDialogue from "@/components/ConfirmDialogue.vue"
 import { Button } from "@/components/common"
 
 import {
@@ -17,13 +19,16 @@ import {
   Palette,
   Sun,
   Moon,
-  Monitor
+  Monitor,
+  Fingerprint,
+  Plus,
+  Trash2Icon
 } from "lucide-vue-next"
 
 import useClient from "@/composables/useClient"
 import useToaster from "@/composables/useToaster"
 import useTheme, { type Theme } from "@/composables/useTheme"
-import type { User } from "@/utils/type"
+import type { Passkey, User } from "@/utils/type"
 
 defineOptions({ name: "DashSettingsView" })
 
@@ -42,10 +47,50 @@ const themeOptions = [
   { value: "system", label: "System", icon: Monitor }
 ] satisfies { value: Theme; label: string; icon: unknown }[]
 
+const passkeys = ref<Option<Passkey[]>>(null)
+const newPasskeyName = ref("")
+const addingPasskey = ref(false)
+const deleteTarget = ref<Option<Passkey>>(null)
+
 onMounted(() => {
   const stored = localStorage.getItem("user")
   if (stored) user.value = JSON.parse(stored)
 })
+
+const loadPasskeys = async () => {
+  passkeys.value = await client.webauthnListCredentials()
+}
+
+onMounted(loadPasskeys)
+
+const addPasskey = async () => {
+  if (addingPasskey.value) return
+
+  addingPasskey.value = true
+  try {
+    const optionsJSON = await client.webauthnRegisterBegin()
+    const response = await startRegistration({ optionsJSON })
+    await client.webauthnRegisterFinish(response, newPasskeyName.value || "Passkey")
+
+    newPasskeyName.value = ""
+    await loadPasskeys()
+    push({ title: "Passkey added", colour: "success", delay: 4000 })
+  } catch (e) {
+    if ((e as Error)?.name !== "NotAllowedError") {
+      push({ title: "Could not add passkey", colour: "danger", delay: 4000 })
+    }
+  } finally {
+    addingPasskey.value = false
+  }
+}
+
+const deletePasskey = async () => {
+  if (!deleteTarget.value) return
+
+  await client.webauthnDeleteCredential(deleteTarget.value.id)
+  await loadPasskeys()
+  push({ title: "Passkey removed", colour: "info", delay: 4000 })
+}
 
 const copyToClipboard = () => {
   if (token.value) {
@@ -99,6 +144,53 @@ const formatDate = (date: Date | string): string =>
           <ShieldCheck :size="13" />
           Admin
         </span>
+      </div>
+    </Card>
+
+    <!-- Passkeys -->
+    <Card class="space-y-4">
+      <div class="flex items-center gap-2">
+        <Fingerprint :size="18" class="text-primary" />
+        <h2 class="text-lg font-bold">Passkeys</h2>
+      </div>
+
+      <p class="text-muted text-sm">
+        Sign in with Face ID, Touch ID, Windows Hello, or a security key instead of your password.
+      </p>
+
+      <ConfirmDialogue
+        v-if="deleteTarget"
+        @dismiss="deleteTarget = null"
+        title="Remove this passkey?"
+        :description="`You won't be able to sign in with '${deleteTarget.name}' anymore.`"
+        confirm-text="Remove"
+        confirm-colour="danger"
+        :confirm-icon="Trash2Icon"
+        :confirm-action="() => deletePasskey()" />
+
+      <div v-if="passkeys && passkeys.length > 0" class="border-border divide-border border-t *:border-b *:last:border-0">
+        <div v-for="pk in passkeys" :key="pk.id" class="flex items-center justify-between gap-3 py-3">
+          <div class="min-w-0">
+            <p class="truncate text-sm font-semibold">{{ pk.name }}</p>
+            <p class="text-muted text-xs">Added {{ formatDate(pk.created_at) }}</p>
+          </div>
+
+          <button class="text-muted hover:text-danger shrink-0 hover:cursor-pointer" title="Remove" @click="deleteTarget = pk">
+            <Trash2Icon :size="16" />
+          </button>
+        </div>
+      </div>
+
+      <div class="border-border flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center">
+        <input
+          v-model="newPasskeyName"
+          type="text"
+          placeholder="e.g. MacBook Touch ID"
+          class="border-border bg-surface-2 text-foreground focus:border-primary focus:ring-primary/20 w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 sm:flex-1" />
+
+        <Button :icon="Plus" :loading="addingPasskey" class="w-full sm:w-auto" @click="addPasskey">
+          {{ addingPasskey ? "Waiting for passkey..." : "Add a passkey" }}
+        </Button>
       </div>
     </Card>
 

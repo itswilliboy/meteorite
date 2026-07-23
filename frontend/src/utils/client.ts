@@ -1,7 +1,13 @@
 import { $fetch, type FetchOptions, type FetchRequest } from "ofetch"
 import { type Router } from "vue-router"
+import type {
+  AuthenticationResponseJSON,
+  PublicKeyCredentialCreationOptionsJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+  RegistrationResponseJSON
+} from "@simplewebauthn/browser"
 
-import type { AdminStats, AdminUser, APIResponse, DashboardStats, DashboardTimeseries, Image, PaginatedResponse, User } from "./type"
+import type { AdminStats, AdminUser, APIResponse, DashboardStats, DashboardTimeseries, Image, PaginatedResponse, Passkey, User } from "./type"
 
 export class HTTPException extends Error {
   status: number
@@ -104,6 +110,35 @@ export class Client {
 
   async adminSetUserAdmin(id: number, admin: boolean): Promise<User> {
     return this.request<User>(`/api/admin/users/${id}/admin`, { method: "POST", body: { admin } })
+  }
+
+  async webauthnRegisterBegin(): Promise<PublicKeyCredentialCreationOptionsJSON> {
+    return this.request<PublicKeyCredentialCreationOptionsJSON>("/api/webauthn/register/begin", { method: "POST" })
+  }
+
+  async webauthnRegisterFinish(response: RegistrationResponseJSON, name: string): Promise<void> {
+    return this.request<void>(`/api/webauthn/register/finish?name=${encodeURIComponent(name)}`, {
+      method: "POST",
+      body: response
+    })
+  }
+
+  async webauthnLoginBegin(): Promise<PublicKeyCredentialRequestOptionsJSON> {
+    return this.request<PublicKeyCredentialRequestOptionsJSON>("/api/webauthn/login/begin", { method: "POST" })
+  }
+
+  async webauthnLoginFinish(response: AuthenticationResponseJSON): Promise<User> {
+    const resp = await this.request<User>("/api/webauthn/login/finish", { method: "POST", body: response })
+    return { ...resp, created_at: new Date(resp.created_at) }
+  }
+
+  async webauthnListCredentials(): Promise<Passkey[]> {
+    const list = await this.request<Passkey[]>("/api/webauthn/credentials")
+    return list.map(p => ({ ...p, created_at: new Date(p.created_at) }))
+  }
+
+  async webauthnDeleteCredential(id: string): Promise<void> {
+    return this.request<void>(`/api/webauthn/credentials/${id}/delete`, { method: "POST" })
   }
 
   async uploadImage(imageData: Blob): Promise<{ URL: string }> {
