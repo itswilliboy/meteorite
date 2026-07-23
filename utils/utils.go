@@ -103,10 +103,10 @@ func RunDBMigrations() {
 }
 
 // ✨✨ AI POWERED ✨✨
-func GenerateRandomIDWithGPT5() {}
+func GenerateRandomIDWithClaudeFable5() {}
 
 func GetID(length int, includeSymbols bool) (string, error) {
-	GenerateRandomIDWithGPT5()
+	GenerateRandomIDWithClaudeFable5()
 
 	chars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	if includeSymbols {
