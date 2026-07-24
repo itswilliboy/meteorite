@@ -7,7 +7,19 @@ import { computed, onMounted, ref, useTemplateRef, watch } from "vue"
 import { LucideMusic, LucidePlay, LucidePause, Volume2, VolumeX, FileText, File as LucideFile } from "lucide-vue-next"
 import { formatDuration } from "@/utils/format"
 
-const { image, preview = true, thumbnail = false } = defineProps<{ image: Image; preview?: boolean; thumbnail?: boolean }>()
+const {
+  image,
+  preview = true,
+  thumbnail = false,
+  fit = "cover",
+  thumbnailWidth = 320
+} = defineProps<{
+  image: Image
+  preview?: boolean
+  thumbnail?: boolean
+  fit?: "cover" | "contain"
+  thumbnailWidth?: number
+}>()
 
 const { isImage, isVideo, isAudio, isText, isOther } = useMediaType(image.mimetype)
 const { setActive, clearActive } = useActiveMedia()
@@ -19,7 +31,7 @@ const mediaUrl = computed(() => {
   const params = new URLSearchParams()
 
   if (preview) params.append("d", "true")
-  if (thumbnail && isImage) params.append("width", "320")
+  if (thumbnail && isImage) params.append("width", String(thumbnailWidth))
   url.search = params.toString()
 
   return url.toString()
@@ -162,7 +174,7 @@ watch(isHovered, after => {
   <span
     :class="
       preview
-        ? '*:size-64 *:rounded-t-xl *:object-cover'
+        ? `*:size-64 *:rounded-t-xl ${fit === 'contain' ? '*:object-contain' : '*:object-cover'}`
         : 'flex size-full items-center justify-center overflow-hidden *:max-h-full *:max-w-full *:object-scale-down'
     ">
     <video ref="v" v-if="isVideo && preview" :src="mediaUrl" preload="metadata">Failed to load video...</video>

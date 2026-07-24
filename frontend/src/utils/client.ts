@@ -87,8 +87,8 @@ export class Client {
     return this.request<string>("/api/reset-token", { method: "POST" })
   }
 
-  async getImages(page: number = 0) {
-    return this.requestPaginated<Image[]>(`/api/get-images?page=${page}`)
+  async getImages(page: number = 0, sort: string = "date_desc") {
+    return this.requestPaginated<Image[]>(`/api/get-images?page=${page}&sort=${sort}`)
   }
 
   async deleteImage(imageId: string): Promise<void> {

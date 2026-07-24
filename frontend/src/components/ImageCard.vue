@@ -11,10 +11,12 @@ import ImageOrVideo from "./ImageOrVideo.vue"
 import { CheckIcon, Trash2Icon } from "lucide-vue-next"
 import ConfirmDialogue from "./ConfirmDialogue.vue"
 
-const { image, selectable = false, selected = false } = defineProps<{
+const { image, selectable = false, selected = false, fit = "cover", thumbnailWidth = 320 } = defineProps<{
   image: Image
   selectable?: boolean
   selected?: boolean
+  fit?: "cover" | "contain"
+  thumbnailWidth?: number
 }>()
 
 const client = useClient()
@@ -25,7 +27,6 @@ const confirmOpen = ref<boolean>(false)
 
 const emit = defineEmits<{
   pop: [id: string]
-  "toggle-select": [id: string]
 }>()
 
 const deleteImage = () => {
@@ -35,15 +36,14 @@ const deleteImage = () => {
 }
 
 const onTileClick = () => {
-  if (selectable) emit("toggle-select", image.id)
-  else imageOpen.value = true
+  if (!selectable) imageOpen.value = true
 }
 </script>
 
 <template>
   <div
     :class="[
-      'group relative aspect-square w-full overflow-hidden rounded-xl shadow-sm transition',
+      'bg-surface-2 group relative aspect-square w-full overflow-hidden rounded-xl shadow-sm transition',
       selected && 'ring-primary ring-3 ring-offset-2',
     ]">
     <ImageCardFull v-if="imageOpen" :image="image" @dismiss="imageOpen = false" @pop="$emit('pop', image.id)" />
@@ -71,8 +71,13 @@ const onTileClick = () => {
     </div>
     <div
       @click="onTileClick"
-      class="size-full cursor-pointer transition-all duration-200 hover:brightness-90">
-      <ImageOrVideo :image="image" :thumbnail="true" class="!block size-full [&>*]:!size-full [&>*]:!rounded-none" />
+      :class="['size-full cursor-pointer transition-all duration-200 hover:brightness-90', selectable && 'select-none']">
+      <ImageOrVideo
+        :image="image"
+        :thumbnail="true"
+        :fit="fit"
+        :thumbnail-width="thumbnailWidth"
+        class="!block size-full [&>*]:!size-full [&>*]:!rounded-none" />
     </div>
 
     <div class="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t from-black/75 via-black/35 to-transparent p-2.5 pt-8">

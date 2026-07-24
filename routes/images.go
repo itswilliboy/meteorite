@@ -322,6 +322,17 @@ type GetImagesResp struct {
 	HasCover   bool     `json:"has_cover"`
 }
 
+var imageSortColumns = map[string]string{
+	"date_desc":  "date DESC",
+	"date_asc":   "date ASC",
+	"size_desc":  "size DESC",
+	"size_asc":   "size ASC",
+	"views_desc": "views DESC",
+	"views_asc":  "views ASC",
+	"name_asc":   "COALESCE(filename, id) ASC",
+	"name_desc":  "COALESCE(filename, id) DESC",
+}
+
 func GetImages(w http.ResponseWriter, r *http.Request) {
 	userID := utils.GetUserID(r)
 
@@ -330,22 +341,30 @@ func GetImages(w http.ResponseWriter, r *http.Request) {
 		page = 0
 	}
 
+	orderBy, ok := imageSortColumns[r.URL.Query().Get("sort")]
+	if !ok {
+		orderBy = imageSortColumns["date_desc"]
+	}
+
 	const pageSize = 24
 	offset := page * pageSize
 
 	rows, err := utils.DB.Query(
 		r.Context(),
-		`
-			SELECT
-				id, date, mimetype, views, filename, size,
-				width, height, duration_ms, bitrate, codec, framerate, sample_rate, channels,
-				has_cover
-			FROM media
-			WHERE user_id = $1
-			ORDER BY date DESC
-			OFFSET ($2)
-			LIMIT $3;
-		`,
+		fmt.Sprintf(
+			`
+				SELECT
+					id, date, mimetype, views, filename, size,
+					width, height, duration_ms, bitrate, codec, framerate, sample_rate, channels,
+					has_cover
+				FROM media
+				WHERE user_id = $1
+				ORDER BY %s
+				OFFSET ($2)
+				LIMIT $3;
+			`,
+			orderBy,
+		),
 		userID, offset, pageSize+1,
 	)
 	if err != nil {
