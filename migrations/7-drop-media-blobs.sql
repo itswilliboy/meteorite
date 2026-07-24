@@ -1,0 +1,6 @@
+BEGIN;
+
+ALTER TABLE media DROP COLUMN data;
+ALTER TABLE media DROP COLUMN cover_art;
+
+COMMIT;

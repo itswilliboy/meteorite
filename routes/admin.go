@@ -23,7 +23,7 @@ func AdminStatistics(w http.ResponseWriter, r *http.Request) {
 			(SELECT COUNT(*) FROM users),
 			(SELECT COUNT(*) FROM users WHERE enabled = true),
 			(SELECT COUNT(*) FROM media),
-			(SELECT COALESCE(SUM(octet_length(COALESCE(data, ''))), 0) FROM media)
+			(SELECT COALESCE(SUM(COALESCE(size, 0)), 0) FROM media)
 	`
 
 	var stats adminStatistics
@@ -61,7 +61,7 @@ func AdminListUsers(w http.ResponseWriter, r *http.Request) {
 			SELECT
 				u.id, u.name, u.created_at, u.enabled, u.admin,
 				COUNT(m.id) AS total_images,
-				COALESCE(SUM(octet_length(m.data)), 0) AS storage_usage
+				COALESCE(SUM(m.size), 0) AS storage_usage
 			FROM users u
 			LEFT JOIN media m ON m.user_id = u.id
 			GROUP BY u.id

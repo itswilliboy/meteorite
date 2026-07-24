@@ -116,11 +116,11 @@ func DashboardStatistics(w http.ResponseWriter, r *http.Request) {
 	query := `
 		SELECT
 			COUNT(*),
-			COALESCE(SUM(octet_length(COALESCE(data, ''))), 0),
+			COALESCE(SUM(COALESCE(size, 0)), 0),
 			COUNT(*) FILTER (
 				WHERE date >= date_trunc('month', CURRENT_DATE)
 			),
-			COALESCE(SUM(COALESCE(octet_length(data), 0)::bigint * COALESCE(views, 0)), 0)
+			COALESCE(SUM(COALESCE(size, 0)::bigint * COALESCE(views, 0)), 0)
 				+ COALESCE((SELECT bandwidth FROM users WHERE id = $1), 0)
 		FROM media
 		WHERE user_id = $1
@@ -167,7 +167,7 @@ func DashboardTimeseries(w http.ResponseWriter, r *http.Request) {
 				SELECT
 					date_trunc('day', date)::date AS day,
 					COUNT(*) AS uploads,
-					COALESCE(SUM(octet_length(data)), 0) AS bytes
+					COALESCE(SUM(size), 0) AS bytes
 				FROM media
 				WHERE user_id = $1 AND date >= CURRENT_DATE - $2::int
 				GROUP BY 1
@@ -207,7 +207,7 @@ func DashboardTimeseries(w http.ResponseWriter, r *http.Request) {
 	}
 	err = utils.DB.QueryRow(
 		r.Context(),
-		`SELECT COALESCE(SUM(octet_length(COALESCE(data, ''))), 0) FROM media WHERE user_id = $1`,
+		`SELECT COALESCE(SUM(COALESCE(size, 0)), 0) FROM media WHERE user_id = $1`,
 		userID,
 	).Scan(&totalBytes)
 	if err != nil {

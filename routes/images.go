@@ -103,15 +103,27 @@ func ImageUpload(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if err := utils.PutObject(r.Context(), utils.MediaBucket, id, data, mtype.String()); err != nil {
+		utils.InternalServerError(w, err)
+		return
+	}
+	if coverArt != nil {
+		coverType := mimetype.Detect(coverArt).String()
+		if err := utils.PutObject(r.Context(), utils.CoversBucket, id, coverArt, coverType); err != nil {
+			utils.InternalServerError(w, err)
+			return
+		}
+	}
+
 	_, err = utils.DB.Exec(
 		r.Context(),
 		`
 			INSERT INTO media
-				(id, data, mimetype, user_id, filename, width, height, duration_ms, bitrate, codec, framerate, sample_rate, channels, cover_art)
+				(id, size, mimetype, user_id, filename, width, height, duration_ms, bitrate, codec, framerate, sample_rate, channels, has_cover)
 			VALUES
 				($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		`,
-		id, data, mtype.String(), userID, filename, width, height, durationMs, bitrate, codec, framerate, sampleRate, channels, coverArt,
+		id, len(data), mtype.String(), userID, filename, width, height, durationMs, bitrate, codec, framerate, sampleRate, channels, coverArt != nil,
 	)
 	if err != nil {
 		utils.InternalServerError(w, err)
@@ -181,19 +193,29 @@ func ImageGet(w http.ResponseWriter, r *http.Request) {
 	wantDownload := (r.URL.Query().Get("download") == "true")
 
 	if wantCover {
-		var coverArt []byte
+		var hasCover bool
 		err := utils.DB.QueryRow(
 			r.Context(),
 			`
-			SELECT m.cover_art
+			SELECT m.has_cover
 			FROM media m
 			JOIN users ON m.user_id = users.id
 				WHERE m.id = $1 AND users.name = $2;
 			`,
 			split[0], user,
-		).Scan(&coverArt)
-		if err != nil || len(coverArt) == 0 {
+		).Scan(&hasCover)
+		if err != nil || !hasCover {
 			utils.WriteCodeError(w, http.StatusNotFound)
+			return
+		}
+
+		coverArt, err := utils.GetObject(r.Context(), utils.CoversBucket, split[0])
+		if err != nil {
+			if utils.IsNotFound(err) {
+				utils.WriteCodeError(w, http.StatusNotFound)
+				return
+			}
+			utils.InternalServerError(w, err)
 			return
 		}
 
@@ -214,7 +236,6 @@ func ImageGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var imageData []byte
 	var mimeType string
 	var filename *string
 	err := utils.DB.QueryRow(
@@ -224,10 +245,9 @@ func ImageGet(w http.ResponseWriter, r *http.Request) {
 			UPDATE media
 			SET views = views + CASE WHEN $3 = false THEN 1 ELSE 0 END
 			WHERE id = $1
-			RETURNING data, mimetype, filename, user_id
+			RETURNING mimetype, filename, user_id
 		)
 		SELECT
-			u.data,
 			u.mimetype,
 			u.filename
 		FROM updated u
@@ -235,13 +255,23 @@ func ImageGet(w http.ResponseWriter, r *http.Request) {
 			WHERE users.name = $2;
 		`,
 		split[0], user, isDashboard,
-	).Scan(&imageData, &mimeType, &filename)
+	).Scan(&mimeType, &filename)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			utils.WriteCodeError(w, http.StatusNotFound)
 			return
 		}
 
+		utils.InternalServerError(w, err)
+		return
+	}
+
+	imageData, err := utils.GetObject(r.Context(), utils.MediaBucket, split[0])
+	if err != nil {
+		if utils.IsNotFound(err) {
+			utils.WriteCodeError(w, http.StatusNotFound)
+			return
+		}
 		utils.InternalServerError(w, err)
 		return
 	}
@@ -307,9 +337,9 @@ func GetImages(w http.ResponseWriter, r *http.Request) {
 		r.Context(),
 		`
 			SELECT
-				id, date, mimetype, views, filename, octet_length(data) AS size,
+				id, date, mimetype, views, filename, size,
 				width, height, duration_ms, bitrate, codec, framerate, sample_rate, channels,
-				(cover_art IS NOT NULL) AS has_cover
+				has_cover
 			FROM media
 			WHERE user_id = $1
 			ORDER BY date DESC
@@ -373,30 +403,39 @@ func DeleteImage(w http.ResponseWriter, r *http.Request) {
 	userID := utils.GetUserID(r)
 	imageID := r.URL.Query().Get("id")
 
-	var deleted bool
+	var deleted, hasCover bool
 	err := utils.DB.QueryRow(
 		r.Context(),
 		`
 			WITH removed AS (
 				DELETE FROM media
 				WHERE id = $1 AND user_id = $2
-				RETURNING COALESCE(octet_length(data), 0)::bigint * COALESCE(views, 0) AS bandwidth
+				RETURNING COALESCE(size, 0)::bigint * COALESCE(views, 0) AS bandwidth, has_cover
 			),
 			bumped AS (
 				UPDATE users
 				SET bandwidth = bandwidth + COALESCE((SELECT SUM(bandwidth) FROM removed), 0)
 				WHERE id = $2 AND EXISTS (SELECT 1 FROM removed)
 			)
-			SELECT EXISTS (SELECT 1 FROM removed)
+			SELECT EXISTS (SELECT 1 FROM removed), COALESCE((SELECT has_cover FROM removed), false)
 		`,
 		imageID, userID,
-	).Scan(&deleted)
+	).Scan(&deleted, &hasCover)
 	if err != nil {
 		utils.InternalServerError(w, err)
 		return
 	}
 
 	if deleted {
+		if err := utils.DeleteObject(r.Context(), utils.MediaBucket, imageID); err != nil {
+			log.Printf("Error deleting media object %q: %v\n", imageID, err)
+		}
+		if hasCover {
+			if err := utils.DeleteObject(r.Context(), utils.CoversBucket, imageID); err != nil {
+				log.Printf("Error deleting cover object %q: %v\n", imageID, err)
+			}
+		}
+
 		utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusOK})
 		return
 	}

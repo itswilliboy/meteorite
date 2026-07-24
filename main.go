@@ -49,6 +49,7 @@ func main() {
 	defer utils.DB.Close()
 
 	utils.RunDBMigrations()
+	utils.InitStorage()
 
 	if err := utils.InitWebAuthn(); err != nil {
 		utils.CheckError(err)
