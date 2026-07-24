@@ -154,9 +154,7 @@ const formatDate = (date: Date | string): string =>
         <h2 class="text-lg font-bold">Passkeys</h2>
       </div>
 
-      <p class="text-muted text-sm">
-        Sign in with Face ID, Touch ID, Windows Hello, or a security key instead of your password.
-      </p>
+      <p class="text-muted text-sm">Sign in using a security key instead of your password.</p>
 
       <ConfirmDialogue
         v-if="deleteTarget"
@@ -172,10 +170,14 @@ const formatDate = (date: Date | string): string =>
         <div v-for="pk in passkeys" :key="pk.id" class="flex items-center justify-between gap-3 py-3">
           <div class="min-w-0">
             <p class="truncate text-sm font-semibold">{{ pk.name }}</p>
+            <p class="text-muted text-xs">{{ pk.id }}</p>
             <p class="text-muted text-xs">Added {{ formatDate(pk.created_at) }}</p>
           </div>
 
-          <button class="text-muted hover:text-danger shrink-0 hover:cursor-pointer" title="Remove" @click="deleteTarget = pk">
+          <button
+            class="text-muted hover:text-danger shrink-0 hover:cursor-pointer"
+            title="Remove"
+            @click="deleteTarget = pk">
             <Trash2Icon :size="16" />
           </button>
         </div>
@@ -185,7 +187,7 @@ const formatDate = (date: Date | string): string =>
         <input
           v-model="newPasskeyName"
           type="text"
-          placeholder="e.g. MacBook Touch ID"
+          placeholder="e.g. MacBook"
           class="border-border bg-surface-2 text-foreground focus:border-primary focus:ring-primary/20 w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 sm:flex-1" />
 
         <Button :icon="Plus" :loading="addingPasskey" class="w-full sm:w-auto" @click="addPasskey">
@@ -208,9 +210,7 @@ const formatDate = (date: Date | string): string =>
           v-for="opt in themeOptions"
           :key="opt.value"
           class="flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition hover:cursor-pointer"
-          :class="
-            theme === opt.value ? 'bg-primary text-white shadow-sm' : 'text-muted hover:text-foreground'
-          "
+          :class="theme === opt.value ? 'bg-primary text-white shadow-sm' : 'text-muted hover:text-foreground'"
           @click="setTheme(opt.value)">
           <component :is="opt.icon" :size="16" />
           {{ opt.label }}
@@ -258,7 +258,8 @@ const formatDate = (date: Date | string): string =>
         For security, existing keys can't be displayed. Regenerate to view and copy a new one.
       </p>
 
-      <div class="border-border flex flex-col items-start gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+      <div
+        class="border-border flex flex-col items-start gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p class="text-sm font-semibold">Regenerate key</p>
           <p class="text-muted text-xs">This would invalidate your current key.</p>
