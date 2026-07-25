@@ -2,24 +2,20 @@
 import clsx from "clsx"
 import { LayoutDashboard, Images, Link, Server, Settings, LogOut } from "lucide-vue-next"
 import type { FunctionalComponent } from "vue"
-import { computed, onMounted, ref } from "vue"
+import { computed } from "vue"
 
 import { useRouter } from "vue-router"
 import useClient from "@/composables/useClient"
-import type { User } from "@/utils/type"
+import useAuth from "@/composables/useAuth"
 
 const client = useClient()
 const router = useRouter()
 
-const currentUser = ref<User | null>(null)
-onMounted(() => {
-  const stored = localStorage.getItem("user")
-  if (stored) currentUser.value = JSON.parse(stored)
-})
+const { user: currentUser, setUser } = useAuth()
 
 const logOut = async () => {
   await client.logout()
-  localStorage.removeItem("user")
+  setUser(null)
   router.push("/login")
 }
 

@@ -8,8 +8,9 @@ import { StatCard } from "@/components/common"
 import ConfirmDialogue from "@/components/ConfirmDialogue.vue"
 import useClient from "@/composables/useClient"
 import useToaster from "@/composables/useToaster"
+import useAuth from "@/composables/useAuth"
 import { formatBytes } from "@/utils/format"
-import type { AdminUserDetail, User } from "@/utils/type"
+import type { AdminUserDetail } from "@/utils/type"
 
 import {
   ArrowLeft,
@@ -36,7 +37,7 @@ const { push } = useToaster()
 
 const userId = computed(() => Number(route.params.id))
 
-const currentUser = ref<Option<User>>(null)
+const { user: currentUser } = useAuth()
 const detail = ref<Option<AdminUserDetail>>(null)
 
 const load = async () => {
@@ -44,11 +45,7 @@ const load = async () => {
   detail.value = await client.adminGetUser(userId.value)
 }
 
-onMounted(async () => {
-  const stored = localStorage.getItem("user")
-  if (stored) currentUser.value = JSON.parse(stored)
-  await load()
-})
+onMounted(load)
 
 watch(userId, load)
 

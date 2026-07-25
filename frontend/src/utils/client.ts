@@ -7,6 +7,7 @@ import type {
   RegistrationResponseJSON
 } from "@simplewebauthn/browser"
 
+import { setCurrentUser } from "@/composables/useAuth"
 import type {
   AdminStats,
   AdminUser,
@@ -41,6 +42,7 @@ export class Client {
     if (resp.status >= 200 && resp.status < 300) return resp.data
 
     if (resp.status === 401) {
+      setCurrentUser(null)
       if (this.router.currentRoute.value.name !== "login") {
         this.router.push("/login")
       }
@@ -58,6 +60,7 @@ export class Client {
     if (resp.status >= 200 && resp.status < 300) return resp
 
     if (resp.status === 401) {
+      setCurrentUser(null)
       if (this.router.currentRoute.value.name !== "login") {
         this.router.push("/login")
       }

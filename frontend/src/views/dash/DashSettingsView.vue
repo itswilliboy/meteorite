@@ -28,18 +28,19 @@ import {
 import useClient from "@/composables/useClient"
 import useToaster from "@/composables/useToaster"
 import useTheme, { type Theme } from "@/composables/useTheme"
-import type { Passkey, User } from "@/utils/type"
+import useAuth from "@/composables/useAuth"
+import type { Passkey } from "@/utils/type"
 
 defineOptions({ name: "DashSettingsView" })
 
 const client = useClient()
 const { push } = useToaster()
 const { theme, setTheme } = useTheme()
+const { user } = useAuth()
 
 const token = ref<Option<string>>(null)
 const revealed = ref(false)
 const resetting = ref(false)
-const user = ref<Option<User>>(null)
 
 const themeOptions = [
   { value: "light", label: "Light", icon: Sun },
@@ -51,11 +52,6 @@ const passkeys = ref<Option<Passkey[]>>(null)
 const newPasskeyName = ref("")
 const addingPasskey = ref(false)
 const deleteTarget = ref<Option<Passkey>>(null)
-
-onMounted(() => {
-  const stored = localStorage.getItem("user")
-  if (stored) user.value = JSON.parse(stored)
-})
 
 const loadPasskeys = async () => {
   passkeys.value = await client.webauthnListCredentials()

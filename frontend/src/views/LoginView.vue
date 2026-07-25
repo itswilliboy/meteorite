@@ -6,10 +6,12 @@ import { startAuthentication } from "@simplewebauthn/browser"
 import InputBar from "@/components/InputBar.vue"
 import { Button } from "@/components/common"
 import useClient from "@/composables/useClient"
+import useAuth from "@/composables/useAuth"
 import { Eye, EyeOff, KeyRound } from "lucide-vue-next"
 
 const router = useRouter()
 const client = useClient()
+const { setUser } = useAuth()
 
 const showPassword = ref(false)
 const loading = ref(false)
@@ -27,7 +29,7 @@ const loginCallback = async (e: Event) => {
 
   try {
     const user = await client.login(auth.username, auth.password)
-    localStorage.setItem("user", JSON.stringify(user))
+    setUser(user)
     router.push("/dash")
   } catch {
     error.value = "Invalid username or password"
@@ -46,7 +48,7 @@ const passkeyLogin = async () => {
     const optionsJSON = await client.webauthnLoginBegin()
     const response = await startAuthentication({ optionsJSON })
     const user = await client.webauthnLoginFinish(response)
-    localStorage.setItem("user", JSON.stringify(user))
+    setUser(user)
     router.push("/dash")
   } catch (e) {
     // the user simply dismissed the passkey prompt - not an error worth showing

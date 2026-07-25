@@ -9,8 +9,9 @@ import ConfirmDialogue from "@/components/ConfirmDialogue.vue"
 import { HTTPException } from "@/utils/client"
 import useClient from "@/composables/useClient"
 import useToaster from "@/composables/useToaster"
+import useAuth from "@/composables/useAuth"
 import { formatBytes } from "@/utils/format"
-import type { AdminStats, AdminUser, PaginatedResponse, User } from "@/utils/type"
+import type { AdminStats, AdminUser, PaginatedResponse } from "@/utils/type"
 
 import { Users, UserCheck, Images, HardDrive, ShieldCheck, ShieldOff, Ban, CheckCircle2, UserPlus } from "lucide-vue-next"
 
@@ -18,15 +19,12 @@ defineOptions({ name: "DashAdminView" })
 
 const client = useClient()
 const { push } = useToaster()
+const { user: currentUser } = useAuth()
 
 const stats = ref<Option<AdminStats>>(null)
 const response = ref<PaginatedResponse<AdminUser[]> | null>(null)
-const currentUser = ref<Option<User>>(null)
 
 onMounted(async () => {
-  const stored = localStorage.getItem("user")
-  if (stored) currentUser.value = JSON.parse(stored)
-
   const [s, users] = await Promise.all([client.adminStats(), client.adminListUsers(0)])
   stats.value = s
   response.value = users
