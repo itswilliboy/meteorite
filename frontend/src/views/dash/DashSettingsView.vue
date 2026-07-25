@@ -5,6 +5,7 @@ import { startRegistration } from "@simplewebauthn/browser"
 import PageContainer from "@/components/PageContainer.vue"
 import Card from "@/components/Card.vue"
 import ConfirmDialogue from "@/components/ConfirmDialogue.vue"
+import InputBar from "@/components/InputBar.vue"
 import { Button } from "@/components/common"
 
 import {
@@ -22,10 +23,12 @@ import {
   Monitor,
   Fingerprint,
   Plus,
-  Trash2Icon
+  Trash2Icon,
+  Asterisk
 } from "lucide-vue-next"
 
 import useClient from "@/composables/useClient"
+import { HTTPException } from "@/utils/client"
 import useToaster from "@/composables/useToaster"
 import useTheme, { type Theme } from "@/composables/useTheme"
 import useAuth from "@/composables/useAuth"
@@ -108,6 +111,51 @@ const resetTokenCallback = async () => {
   }
 }
 
+const changingPassword = ref(false)
+const showOldPassword = ref(false)
+const showNewPassword = ref(false)
+const passwordError = ref<Option<string>>(null)
+
+const submitPasswordChange = async (e: Event) => {
+  const form = e.target as HTMLFormElement
+  const formData = new FormData(form)
+  const oldPassword = formData.get("old-password") as string
+  const newPassword = formData.get("new-password") as string
+  const confirmPassword = formData.get("confirm-password") as string
+
+  passwordError.value = null
+
+  if (newPassword !== confirmPassword) {
+    passwordError.value = "New passwords do not match."
+    return
+  }
+
+  changingPassword.value = true
+  try {
+    await client.changePassword(oldPassword, newPassword)
+    form.reset()
+
+    // the old key was invalidated server-side, drop it from view
+    token.value = null
+    revealed.value = false
+
+    push({
+      title: "Password changed",
+      desc: "Your other sessions and API key were invalidated.",
+      colour: "success",
+      delay: 6000
+    })
+  } catch (e) {
+    if (e instanceof HTTPException && e.status === 403) {
+      passwordError.value = "Old password does not match."
+    } else {
+      push({ title: "Could not change password", desc: "Something went wrong, please try again.", colour: "danger", delay: 6000 })
+    }
+  } finally {
+    changingPassword.value = false
+  }
+}
+
 const formatDate = (date: Date | string): string =>
   new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric" }).format(new Date(date))
 </script>
@@ -141,6 +189,76 @@ const formatDate = (date: Date | string): string =>
           Admin
         </span>
       </div>
+    </Card>
+
+    <Card class="space-y-4">
+      <div class="flex items-center gap-2">
+        <Asterisk :size="18" class="text-primary" />
+        <h2 class="text-lg font-bold">Change Password</h2>
+      </div>
+
+      <p class="text-muted text-sm">
+        Change your password. Warning: this will invalidate all other sessions and reset your API key.
+      </p>
+
+      <form class="border-border space-y-3 border-t pt-4" @submit.prevent="submitPasswordChange">
+        <InputBar
+          id="old-password"
+          label="Current password"
+          name="old-password"
+          :type="showOldPassword ? 'text' : 'password'"
+          autocomplete="current-password"
+          required
+          placeholder="••••••••••••">
+          <template #suffix>
+            <button
+              type="button"
+              class="grid size-8 place-items-center rounded-md text-gray-400 transition hover:cursor-pointer hover:text-gray-600"
+              :title="showOldPassword ? 'Hide password' : 'Show password'"
+              @click="showOldPassword = !showOldPassword">
+              <component :is="showOldPassword ? EyeOff : Eye" :size="18" />
+            </button>
+          </template>
+        </InputBar>
+
+        <InputBar
+          id="new-password"
+          label="New password"
+          name="new-password"
+          :type="showNewPassword ? 'text' : 'password'"
+          autocomplete="new-password"
+          required
+          minlength="8"
+          placeholder="••••••••••••">
+          <template #suffix>
+            <button
+              type="button"
+              class="grid size-8 place-items-center rounded-md text-gray-400 transition hover:cursor-pointer hover:text-gray-600"
+              :title="showNewPassword ? 'Hide password' : 'Show password'"
+              @click="showNewPassword = !showNewPassword">
+              <component :is="showNewPassword ? EyeOff : Eye" :size="18" />
+            </button>
+          </template>
+        </InputBar>
+
+        <InputBar
+          id="confirm-password"
+          label="Confirm new password"
+          name="confirm-password"
+          :type="showNewPassword ? 'text' : 'password'"
+          autocomplete="new-password"
+          required
+          minlength="8"
+          placeholder="••••••••••••" />
+
+        <p v-if="passwordError" class="bg-danger/10 text-danger rounded-lg px-3 py-2 text-sm font-medium">
+          {{ passwordError }}
+        </p>
+
+        <Button type="submit" variant="danger" :icon="Asterisk" :loading="changingPassword" class="w-full sm:w-auto">
+          {{ changingPassword ? "Changing..." : "Change password" }}
+        </Button>
+      </form>
     </Card>
 
     <!-- Passkeys -->

@@ -85,6 +85,14 @@ export class Client {
     return this.request("/api/logout", { method: "POST" })
   }
 
+  async changePassword(oldPass: string, newPass: string) {
+    const body = {
+      old_password: oldPass,
+      new_password: newPass
+    }
+    return this.request("/api/change-password", { method: "POST", body })
+  }
+
   async ping() {
     return this.request("/api/ping")
   }
