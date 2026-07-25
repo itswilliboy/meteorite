@@ -7,7 +7,18 @@ import type {
   RegistrationResponseJSON
 } from "@simplewebauthn/browser"
 
-import type { AdminStats, AdminUser, APIResponse, DashboardStats, DashboardTimeseries, Image, PaginatedResponse, Passkey, User } from "./type"
+import type {
+  AdminStats,
+  AdminUser,
+  AdminUserDetail,
+  APIResponse,
+  DashboardStats,
+  DashboardTimeseries,
+  Image,
+  PaginatedResponse,
+  Passkey,
+  User
+} from "./type"
 
 export class HTTPException extends Error {
   status: number
@@ -102,6 +113,16 @@ export class Client {
   async adminListUsers(page: number = 0) {
     const resp = await this.requestPaginated<AdminUser[]>(`/api/admin/users?page=${page}`)
     return { ...resp, data: resp.data.map(u => ({ ...u, created_at: new Date(u.created_at) })) }
+  }
+
+  async adminCreateUser(username: string, password: string, admin: boolean = false): Promise<AdminUser> {
+    const resp = await this.request<AdminUser>("/api/admin/users", { method: "POST", body: { username, password, admin } })
+    return { ...resp, created_at: new Date(resp.created_at) }
+  }
+
+  async adminGetUser(id: number): Promise<AdminUserDetail> {
+    const resp = await this.request<AdminUserDetail>(`/api/admin/users/${id}`)
+    return { ...resp, created_at: new Date(resp.created_at) }
   }
 
   async adminSetUserEnabled(id: number, enabled: boolean): Promise<User> {

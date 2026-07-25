@@ -97,6 +97,8 @@ func main() {
 
 			r.Get("/stats", routes.AdminStatistics)
 			r.Get("/users", routes.AdminListUsers)
+			r.Post("/users", routes.AdminCreateUser)
+			r.Get("/users/{id}", routes.AdminGetUser)
 			r.Post("/users/{id}/enabled", routes.AdminSetUserEnabled)
 			r.Post("/users/{id}/admin", routes.AdminSetUserAdmin)
 		})

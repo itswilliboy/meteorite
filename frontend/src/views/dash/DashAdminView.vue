@@ -3,14 +3,16 @@ import { computed, onMounted, ref } from "vue"
 
 import PageContainer from "@/components/PageContainer.vue"
 import Card from "@/components/Card.vue"
-import { StatCard, PaginationControls } from "@/components/common"
+import InputBar from "@/components/InputBar.vue"
+import { StatCard, PaginationControls, Button } from "@/components/common"
 import ConfirmDialogue from "@/components/ConfirmDialogue.vue"
+import { HTTPException } from "@/utils/client"
 import useClient from "@/composables/useClient"
 import useToaster from "@/composables/useToaster"
 import { formatBytes } from "@/utils/format"
 import type { AdminStats, AdminUser, PaginatedResponse, User } from "@/utils/type"
 
-import { Users, UserCheck, Images, HardDrive, ShieldCheck, ShieldOff, Ban, CheckCircle2 } from "lucide-vue-next"
+import { Users, UserCheck, Images, HardDrive, ShieldCheck, ShieldOff, Ban, CheckCircle2, UserPlus } from "lucide-vue-next"
 
 defineOptions({ name: "DashAdminView" })
 
@@ -84,6 +86,41 @@ const applyPendingAction = async () => {
 
   push({ title: `Updated ${action.user.name}`, colour: "success", delay: 4000 })
 }
+
+const showCreateUser = ref(false)
+const createLoading = ref(false)
+const createError = ref<Option<string>>(null)
+
+const openCreateUser = () => {
+  createError.value = null
+  showCreateUser.value = true
+}
+
+const submitCreateUser = async (e: Event) => {
+  const formData = new FormData(e.target as HTMLFormElement)
+  const username = formData.get("username") as string
+  const password = formData.get("password") as string
+  const admin = formData.get("admin") === "on"
+
+  if (!username || !password) return
+
+  createError.value = null
+  createLoading.value = true
+
+  try {
+    const user = await client.adminCreateUser(username, password, admin)
+    response.value?.data.unshift({ ...user, total_images: 0, storage_usage: 0 })
+    if (stats.value) stats.value.total_users += 1
+    if (stats.value && user.enabled) stats.value.active_users += 1
+
+    push({ title: `Created ${user.name}`, colour: "success", delay: 4000 })
+    showCreateUser.value = false
+  } catch (e) {
+    createError.value = e instanceof HTTPException && e.status === 409 ? "Username already exists" : "Could not create user"
+  } finally {
+    createLoading.value = false
+  }
+}
 </script>
 
 <template>
@@ -98,6 +135,41 @@ const applyPendingAction = async () => {
       :confirm-icon="confirmCopy.icon"
       :confirm-action="() => applyPendingAction()" />
 
+    <Teleport to="body" v-if="showCreateUser">
+      <div class="fixed inset-0 z-[999] flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" @click="showCreateUser = false" />
+
+        <form
+          class="bg-surface border-border/60 relative z-50 w-105 max-w-full space-y-4 rounded-2xl border p-6 shadow-2xl"
+          @submit.prevent="submitCreateUser">
+          <h1 class="text-2xl font-semibold">Create user</h1>
+
+          <InputBar id="new-username" label="Username" name="username" type="text" autocomplete="off" required placeholder="gopher" />
+
+          <InputBar
+            id="new-password"
+            label="Password"
+            name="password"
+            type="password"
+            autocomplete="new-password"
+            required
+            placeholder="••••••••••••" />
+
+          <label class="flex items-center gap-2 text-sm font-medium">
+            <input type="checkbox" name="admin" class="accent-primary size-4 rounded" />
+            Grant admin access
+          </label>
+
+          <p v-if="createError" class="bg-danger/10 text-danger rounded-lg px-3 py-2 text-sm font-medium">{{ createError }}</p>
+
+          <div class="grid grid-cols-2 gap-2">
+            <Button type="button" variant="secondary" @click="showCreateUser = false">Cancel</Button>
+            <Button type="submit" :loading="createLoading">{{ createLoading ? "Creating..." : "Create" }}</Button>
+          </div>
+        </form>
+      </div>
+    </Teleport>
+
     <!-- Stats -->
     <section class="grid grid-cols-2 gap-4 lg:grid-cols-4">
       <StatCard
@@ -110,15 +182,19 @@ const applyPendingAction = async () => {
 
     <!-- Users -->
     <section>
-      <div class="mb-3 flex items-center justify-between">
+      <div class="mb-3 flex items-center justify-between gap-3">
         <h2 class="text-lg font-bold">Users</h2>
 
-        <PaginationControls
-          v-if="response"
-          :page="response.page"
-          :has-prev="response.hasPrev"
-          :has-next="response.hasNext"
-          @update:page="setPage" />
+        <div class="flex items-center gap-3">
+          <PaginationControls
+            v-if="response"
+            :page="response.page"
+            :has-prev="response.hasPrev"
+            :has-next="response.hasNext"
+            @update:page="setPage" />
+
+          <Button :icon="UserPlus" @click="openCreateUser">Create user</Button>
+        </div>
       </div>
 
       <Card class="overflow-x-auto p-0">
@@ -139,7 +215,11 @@ const applyPendingAction = async () => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="user in response.data" :key="user.id" class="border-border/60 border-b last:border-0">
+            <tr
+              v-for="user in response.data"
+              :key="user.id"
+              class="border-border/60 hover:bg-surface-2/60 border-b last:border-0 hover:cursor-pointer"
+              @click="$router.push({ name: 'dashAdminUser', params: { id: user.id } })">
               <td class="px-5 py-3 font-semibold">
                 {{ user.name }}
                 <span v-if="user.id === currentUser?.id" class="text-muted ml-1 text-xs font-normal">(you)</span>
@@ -150,7 +230,7 @@ const applyPendingAction = async () => {
               <td class="px-5 py-3">
                 <button
                   :disabled="user.id === currentUser?.id"
-                  @click="requestToggle(user, 'enabled')"
+                  @click.stop="requestToggle(user, 'enabled')"
                   :class="[
                     'rounded-full px-2.5 py-1 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50',
                     user.enabled ? 'bg-success/10 text-success hover:opacity-80' : 'bg-danger/10 text-danger hover:opacity-80',
@@ -162,7 +242,7 @@ const applyPendingAction = async () => {
               <td class="px-5 py-3">
                 <button
                   :disabled="user.id === currentUser?.id"
-                  @click="requestToggle(user, 'admin')"
+                  @click.stop="requestToggle(user, 'admin')"
                   :class="[
                     'rounded-full px-2.5 py-1 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50',
                     user.admin ? 'bg-primary/10 text-primary hover:opacity-80' : 'bg-surface-2 text-muted hover:opacity-80',

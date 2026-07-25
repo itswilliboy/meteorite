@@ -50,6 +50,16 @@ export type AdminUser = User & {
   storage_usage: number
 }
 
+export type AdminUserDetail = AdminUser & {
+  bandwidth: number
+  media_types: {
+    images: number
+    videos: number
+    audio: number
+    other: number
+  }
+}
+
 export type Image = {
   id: string
   date: string

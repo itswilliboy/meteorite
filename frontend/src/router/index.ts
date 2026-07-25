@@ -26,6 +26,11 @@ const dashRoutes = [
     path: "admin",
     name: "dashAdmin",
     component: () => import("@/views/dash/DashAdminView.vue")
+  },
+  {
+    path: "admin/users/:id",
+    name: "dashAdminUser",
+    component: () => import("@/views/dash/DashAdminUserView.vue")
   }
 ] satisfies RouteRecordRaw[]
 
