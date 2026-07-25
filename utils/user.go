@@ -120,7 +120,7 @@ func init() {
 	}
 
 	// refuse to boot with insecure key
-	if len(secret) < 16 || secret == "secret" {
+	if len(secret) < 16 || secret == "CHANGE_ME" {
 		panic("SESSION_SECRET must be at least 16 characters and not a placeholder value")
 	}
 	hash := sha256.Sum256([]byte(secret))
