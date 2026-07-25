@@ -61,7 +61,7 @@ func DashAuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		idStr, err := utils.VerifySessionToken(cookie.Value)
+		idStr, sessionVersion, err := utils.VerifySessionToken(cookie.Value)
 		if err != nil {
 			cookie := utils.CreateInvalidDashSessionCookie()
 			http.SetCookie(w, &cookie)
@@ -76,7 +76,7 @@ func DashAuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		user, err := utils.GetUserByID(id)
-		if err != nil || !user.Enabled {
+		if err != nil || !user.Enabled || user.SessionVersion != sessionVersion {
 			cookie := utils.CreateInvalidDashSessionCookie()
 			http.SetCookie(w, &cookie)
 			utils.WriteCodeError(w, http.StatusUnauthorized)

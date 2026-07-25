@@ -16,7 +16,8 @@ type userReceive struct {
 }
 
 type changePasswordReceive struct {
-	Password string `json:"password"`
+	OldPassword string `json:"old_password"`
+	NewPassword string `json:"new_password"`
 }
 
 func RegisterUser(w http.ResponseWriter, r *http.Request) {
@@ -58,14 +59,42 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := r.Context().Value(utils.CtxUserID)
-	user, err := utils.GetUserByID(userID.(int))
+	userID := utils.GetUserID(r)
+	user, err := utils.GetUserByID(userID)
 	if err != nil {
 		utils.InternalServerError(w, err)
 		return
 	}
 
-	user.SetPassword(payload.Password)
+	var oldHash []byte
+	err = utils.DB.QueryRow(r.Context(), "SELECT password FROM users WHERE id = $1", userID).Scan(&oldHash)
+	if err != nil {
+		utils.InternalServerError(w, err)
+		return
+	}
+
+	err = bcrypt.CompareHashAndPassword(oldHash, []byte(payload.OldPassword))
+	if err != nil {
+		utils.WriteJSONError(w, http.StatusForbidden, "Old password does not match.")
+		return
+	}
+	if err := user.SetPassword(payload.NewPassword); err != nil {
+		utils.InternalServerError(w, err)
+		return
+	}
+
+	if err := user.BumpSessionVersion(); err != nil {
+		utils.InternalServerError(w, err)
+		return
+	}
+
+	if _, err := utils.DB.Exec(r.Context(), "DELETE FROM tokens WHERE user_id = $1", userID); err != nil {
+		utils.InternalServerError(w, err)
+		return
+	}
+
+	cookie := utils.CreateDashSessionCookie(user)
+	http.SetCookie(w, &cookie)
 
 	resp := utils.JSONResponse{Status: 200, Data: "ok"}
 	utils.WriteJSONBody(w, resp)

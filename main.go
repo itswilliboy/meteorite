@@ -86,6 +86,8 @@ func main() {
 			r.Post("/upload", routes.ImageUpload)
 			r.Post("/delete-image", routes.DeleteImage)
 
+			r.Post("/change-password", routes.ChangePassword)
+
 			r.Post("/webauthn/register/begin", routes.WebAuthnRegisterBegin)
 			r.Post("/webauthn/register/finish", routes.WebAuthnRegisterFinish)
 			r.Get("/webauthn/credentials", routes.WebAuthnListCredentials)
@@ -109,7 +111,6 @@ func main() {
 		r.Use(AuthMiddleware)
 
 		r.Post("/upload", routes.ImageUpload)
-		r.Post("/set-password", routes.ChangePassword)
 	})
 
 	// Wildcards

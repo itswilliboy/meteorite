@@ -18,11 +18,12 @@ import (
 )
 
 type User struct {
-	ID        int       `json:"id"`
-	Name      string    `json:"name"`
-	CreatedAt time.Time `json:"created_at"`
-	Enabled   bool      `json:"enabled"`
-	Admin     bool      `json:"admin"`
+	ID             int       `json:"id"`
+	Name           string    `json:"name"`
+	CreatedAt      time.Time `json:"created_at"`
+	Enabled        bool      `json:"enabled"`
+	Admin          bool      `json:"admin"`
+	SessionVersion int       `json:"-"`
 }
 
 func (user *User) SetEnabled(enabled bool) error {
@@ -58,9 +59,22 @@ func (user *User) SetPassword(password string) error {
 	return nil
 }
 
+func (user *User) BumpSessionVersion() error {
+	err := DB.QueryRow(
+		context.Background(),
+		"UPDATE users SET session_version = session_version + 1 WHERE id = $1 RETURNING session_version",
+		user.ID,
+	).Scan(&user.SessionVersion)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func scanUserRow(row pgx.Row) (User, error) {
 	var u User
-	if err := row.Scan(&u.ID, &u.Name, &u.CreatedAt, &u.Enabled, &u.Admin); err != nil {
+	if err := row.Scan(&u.ID, &u.Name, &u.CreatedAt, &u.Enabled, &u.Admin, &u.SessionVersion); err != nil {
 		return User{}, err
 	}
 
@@ -68,7 +82,7 @@ func scanUserRow(row pgx.Row) (User, error) {
 }
 
 func GetUserByID(id int) (User, error) {
-	row := DB.QueryRow(context.Background(), "SELECT id, name, created_at, enabled, admin FROM users WHERE id = $1", id)
+	row := DB.QueryRow(context.Background(), "SELECT id, name, created_at, enabled, admin, session_version FROM users WHERE id = $1", id)
 
 	user, err := scanUserRow(row)
 	if err != nil {
@@ -81,7 +95,7 @@ func GetUserByID(id int) (User, error) {
 func GetUserByToken(token string) (User, error) {
 	row := DB.QueryRow(
 		context.Background(),
-		`SELECT id, name, created_at, enabled, admin FROM users u
+		`SELECT id, name, created_at, enabled, admin, session_version FROM users u
 		JOIN tokens t ON u.id = t.user_id
 		WHERE t.token = $1`,
 		token,
@@ -139,6 +153,7 @@ func CreateSessionToken(user User, expiry time.Time) string {
 	token.SetExpiration(expiry)
 
 	token.Set("user_id", fmt.Sprint(user.ID))
+	token.Set("session_version", user.SessionVersion)
 
 	return token.V4Encrypt(sessionKey, nil)
 }
@@ -172,21 +187,27 @@ func CreateInvalidDashSessionCookie() http.Cookie {
 	}
 }
 
-func VerifySessionToken(signed string) (string, error) {
+func VerifySessionToken(signed string) (string, int, error) {
 	parser := paseto.NewParser()
 	token, err := parser.ParseV4Local(sessionKey, signed, nil)
 	if err != nil {
 		log.Println("could not parse token", err)
-		return "", err
+		return "", 0, err
 	}
 
 	userID, err := token.GetString("user_id")
 	if err != nil {
 		log.Println("could not get user id from token", err)
-		return "", err
+		return "", 0, err
 	}
 
-	return userID, nil
+	var sessionVersion int
+	if err := token.Get("session_version", &sessionVersion); err != nil {
+		log.Println("could not get session version from token", err)
+		return "", 0, err
+	}
+
+	return userID, sessionVersion, nil
 }
 
 func CreateUser(name string, password string) (User, error) {
@@ -197,7 +218,7 @@ func CreateUser(name string, password string) (User, error) {
 		return User{}, err
 	}
 
-	row := DB.QueryRow(ctx, "INSERT INTO users (name, password) VALUES ($1, $2) RETURNING id, name, created_at, enabled, admin", name, hashedPassword)
+	row := DB.QueryRow(ctx, "INSERT INTO users (name, password) VALUES ($1, $2) RETURNING id, name, created_at, enabled, admin, session_version", name, hashedPassword)
 
 	user, err := scanUserRow(row)
 	if err != nil {
