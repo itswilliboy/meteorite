@@ -75,6 +75,14 @@ func DashAuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		user, err := utils.GetUserByID(id)
+		if err != nil || !user.Enabled {
+			cookie := utils.CreateInvalidDashSessionCookie()
+			http.SetCookie(w, &cookie)
+			utils.WriteCodeError(w, http.StatusUnauthorized)
+			return
+		}
+
 		ctx := context.WithValue(r.Context(), utils.CtxUserID, id)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

@@ -42,9 +42,6 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cookie := utils.CreateDashSessionCookie(user)
-	http.SetCookie(w, &cookie)
-
 	resp := utils.JSONResponse{Status: 200, Data: user}
 	utils.WriteJSONBody(w, resp)
 }

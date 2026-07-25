@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"errors"
 	"image"
 	"image/jpeg"
 	"image/png"
@@ -9,6 +10,10 @@ import (
 
 	"golang.org/x/image/draw"
 )
+
+const maxDecodePixels = 50_000_000
+
+var ErrImageTooLarge = errors.New("image dimensions exceed limit")
 
 func clamp(value, low, high int) int {
 	if value < low {
@@ -69,6 +74,14 @@ func parseWidth(width string) int {
 
 func ResizeImage(data []byte, targetWidth string) (image.Image, error) {
 	width := parseWidth(targetWidth)
+
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	if cfg.Width*cfg.Height > maxDecodePixels {
+		return nil, ErrImageTooLarge
+	}
 
 	img, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {

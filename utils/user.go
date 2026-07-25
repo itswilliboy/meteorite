@@ -118,6 +118,11 @@ func init() {
 		sessionKey = paseto.NewV4SymmetricKey()
 		return
 	}
+
+	// refuse to boot with insecure key
+	if len(secret) < 16 || secret == "secret" {
+		panic("SESSION_SECRET must be at least 16 characters and not a placeholder value")
+	}
 	hash := sha256.Sum256([]byte(secret))
 	var err error
 	sessionKey, err = paseto.V4SymmetricKeyFromBytes(hash[:])
