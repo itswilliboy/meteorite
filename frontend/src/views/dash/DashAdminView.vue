@@ -58,13 +58,37 @@ const confirmCopy = computed(() => {
 
   if (action.field === "enabled") {
     return action.next
-      ? { title: "Enable this account?", description: `${action.user.name} will regain access to the dashboard and API.`, confirmText: "Enable", colour: "success" as const, icon: CheckCircle2 }
-      : { title: "Disable this account?", description: `${action.user.name} will be logged out and unable to sign in or upload.`, confirmText: "Disable", colour: "danger" as const, icon: Ban }
+      ? {
+          title: "Enable this account?",
+          description: `${action.user.name} will regain access to the dashboard and API.`,
+          confirmText: "Enable",
+          colour: "success" as const,
+          icon: CheckCircle2
+        }
+      : {
+          title: "Disable this account?",
+          description: `${action.user.name} will be logged out and unable to sign in or upload.`,
+          confirmText: "Disable",
+          colour: "danger" as const,
+          icon: Ban
+        }
   }
 
   return action.next
-    ? { title: "Grant admin access?", description: `${action.user.name} will be able to manage users and view server-wide stats.`, confirmText: "Grant admin", colour: "warning" as const, icon: ShieldCheck }
-    : { title: "Revoke admin access?", description: `${action.user.name} will lose admin privileges.`, confirmText: "Revoke", colour: "warning" as const, icon: ShieldOff }
+    ? {
+        title: "Grant admin access?",
+        description: `${action.user.name} will be able to manage users and view server-wide stats.`,
+        confirmText: "Grant admin",
+        colour: "warning" as const,
+        icon: ShieldCheck
+      }
+    : {
+        title: "Revoke admin access?",
+        description: `${action.user.name} will lose admin privileges.`,
+        confirmText: "Revoke",
+        colour: "warning" as const,
+        icon: ShieldOff
+      }
 })
 
 const applyPendingAction = async () => {
@@ -134,7 +158,7 @@ const submitCreateUser = async (e: Event) => {
       :confirm-action="() => applyPendingAction()" />
 
     <Teleport to="body" v-if="showCreateUser">
-      <div class="fixed inset-0 z-[999] flex items-center justify-center p-4">
+      <div class="fixed inset-0 z-999 flex items-center justify-center p-4">
         <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" @click="showCreateUser = false" />
 
         <form
@@ -142,7 +166,14 @@ const submitCreateUser = async (e: Event) => {
           @submit.prevent="submitCreateUser">
           <h1 class="text-2xl font-semibold">Create user</h1>
 
-          <InputBar id="new-username" label="Username" name="username" type="text" autocomplete="off" required placeholder="gopher" />
+          <InputBar
+            id="new-username"
+            label="Username"
+            name="username"
+            type="text"
+            autocomplete="off"
+            required
+            placeholder="gopher" />
 
           <InputBar
             id="new-password"
@@ -158,7 +189,9 @@ const submitCreateUser = async (e: Event) => {
             Grant admin access
           </label>
 
-          <p v-if="createError" class="bg-danger/10 text-danger rounded-lg px-3 py-2 text-sm font-medium">{{ createError }}</p>
+          <p v-if="createError" class="bg-danger/10 text-danger rounded-lg px-3 py-2 text-sm font-medium">
+            {{ createError }}
+          </p>
 
           <div class="grid grid-cols-2 gap-2">
             <Button type="button" variant="secondary" @click="showCreateUser = false">Cancel</Button>
@@ -231,8 +264,10 @@ const submitCreateUser = async (e: Event) => {
                   @click.stop="requestToggle(user, 'enabled')"
                   :class="[
                     'rounded-full px-2.5 py-1 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50',
-                    user.enabled ? 'bg-success/10 text-success hover:opacity-80' : 'bg-danger/10 text-danger hover:opacity-80',
-                    user.id !== currentUser?.id && 'hover:cursor-pointer',
+                    user.enabled
+                      ? 'bg-success/10 text-success hover:opacity-80'
+                      : 'bg-danger/10 text-danger hover:opacity-80',
+                    user.id !== currentUser?.id && 'hover:cursor-pointer'
                   ]">
                   {{ user.enabled ? "Enabled" : "Disabled" }}
                 </button>
@@ -244,7 +279,7 @@ const submitCreateUser = async (e: Event) => {
                   :class="[
                     'rounded-full px-2.5 py-1 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50',
                     user.admin ? 'bg-primary/10 text-primary hover:opacity-80' : 'bg-surface-2 text-muted hover:opacity-80',
-                    user.id !== currentUser?.id && 'hover:cursor-pointer',
+                    user.id !== currentUser?.id && 'hover:cursor-pointer'
                   ]">
                   {{ user.admin ? "Admin" : "User" }}
                 </button>

@@ -96,7 +96,7 @@ defineProps<{ title: string; className?: string }>()
 @reference "../assets/main.css";
 
 .router-link-active {
-  @apply !rounded-xl !bg-black/10 dark:!bg-white/10;
+  @apply rounded-xl! bg-black/10! dark:bg-white/10!;
 }
 
 .item {

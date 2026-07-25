@@ -11,7 +11,13 @@ import ImageOrVideo from "./ImageOrVideo.vue"
 import { CheckIcon, Trash2Icon } from "lucide-vue-next"
 import ConfirmDialogue from "./ConfirmDialogue.vue"
 
-const { image, selectable = false, selected = false, fit = "cover", thumbnailWidth = 320 } = defineProps<{
+const {
+  image,
+  selectable = false,
+  selected = false,
+  fit = "cover",
+  thumbnailWidth = 320
+} = defineProps<{
   image: Image
   selectable?: boolean
   selected?: boolean
@@ -44,7 +50,7 @@ const onTileClick = () => {
   <div
     :class="[
       'bg-surface-2 group relative aspect-square w-full overflow-hidden rounded-xl shadow-sm transition',
-      selected && 'ring-primary ring-3 ring-offset-2',
+      selected && 'ring-primary ring-3 ring-offset-2'
     ]">
     <ImageCardFull v-if="imageOpen" :image="image" @dismiss="imageOpen = false" @pop="$emit('pop', image.id)" />
     <ConfirmDialogue
@@ -65,7 +71,7 @@ const onTileClick = () => {
       v-if="selectable"
       :class="[
         'absolute top-2 left-2 z-10 grid size-6 place-items-center rounded-full border-2 shadow-sm transition',
-        selected ? 'bg-primary border-primary text-white' : 'border-white/80 bg-black/30',
+        selected ? 'bg-primary border-primary text-white' : 'border-white/80 bg-black/30'
       ]">
       <CheckIcon v-if="selected" :size="15" :stroke-width="3" />
     </div>
@@ -77,10 +83,11 @@ const onTileClick = () => {
         :thumbnail="true"
         :fit="fit"
         :thumbnail-width="thumbnailWidth"
-        class="!block size-full [&>*]:!size-full [&>*]:!rounded-none" />
+        class="*size-full block! size-full *:rounded-none!" />
     </div>
 
-    <div class="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t from-black/75 via-black/35 to-transparent p-2.5 pt-8">
+    <div
+      class="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t from-black/75 via-black/35 to-transparent p-2.5 pt-8">
       <a
         :href="image.url"
         target="_blank"
@@ -89,11 +96,10 @@ const onTileClick = () => {
         {{ image.filename ?? image.id }}
       </a>
       <div class="mt-0.5 flex items-center justify-between gap-2 text-[11px] font-medium text-white/70">
-        <span class="truncate">
-          {{ formatDistance(new Date(), new Date(image.date)).replace("about ", "") }} ago
-        </span>
+        <span class="truncate">{{ formatDistance(new Date(), new Date(image.date)).replace("about ", "") }} ago</span>
         <span class="shrink-0">
-          {{ image.views }} views &middot; {{ image.mimetype.split("/")[1].toUpperCase() }} &middot; {{ formatBytes(image.size) }}
+          {{ image.views }} views &middot; {{ image.mimetype.split("/")[1].toUpperCase() }} &middot;
+          {{ formatBytes(image.size) }}
         </span>
       </div>
     </div>
