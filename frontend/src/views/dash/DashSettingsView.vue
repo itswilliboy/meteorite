@@ -3,9 +3,9 @@ import { onMounted, ref } from "vue"
 import { startRegistration } from "@simplewebauthn/browser"
 
 import PageContainer from "@/components/PageContainer.vue"
-import Card from "@/components/Card.vue"
 import ConfirmDialogue from "@/components/ConfirmDialogue.vue"
 import InputBar from "@/components/InputBar.vue"
+import SettingsCard from "@/components/settings/SettingsCard.vue"
 import { Button } from "@/components/common"
 
 import {
@@ -163,12 +163,7 @@ const formatDate = (date: Date | string): string =>
 <template>
   <PageContainer title="Settings" className="max-w-2xl space-y-6">
     <!-- Account -->
-    <Card class="space-y-4">
-      <div class="flex items-center gap-2">
-        <UserIcon :size="18" class="text-primary" />
-        <h2 class="text-lg font-bold">Account</h2>
-      </div>
-
+    <SettingsCard :icon="UserIcon" title="Account">
       <div class="border-border flex items-center gap-4 border-t pt-4">
         <div class="bg-primary flex size-12 shrink-0 items-center justify-center rounded-full text-lg font-bold text-white">
           {{ user?.name?.charAt(0).toUpperCase() ?? "?" }}
@@ -189,18 +184,12 @@ const formatDate = (date: Date | string): string =>
           Admin
         </span>
       </div>
-    </Card>
+    </SettingsCard>
 
-    <Card class="space-y-4">
-      <div class="flex items-center gap-2">
-        <Asterisk :size="18" class="text-primary" />
-        <h2 class="text-lg font-bold">Change Password</h2>
-      </div>
-
-      <p class="text-muted text-sm">
-        Change your password. Warning: this will invalidate all other sessions and reset your API key.
-      </p>
-
+    <SettingsCard
+      :icon="Asterisk"
+      title="Change Password"
+      description="Change your password. Warning: this will invalidate all other sessions and reset your API key.">
       <form class="border-border space-y-3 border-t pt-4" @submit.prevent="submitPasswordChange">
         <InputBar
           id="old-password"
@@ -259,17 +248,10 @@ const formatDate = (date: Date | string): string =>
           {{ changingPassword ? "Changing..." : "Change password" }}
         </Button>
       </form>
-    </Card>
+    </SettingsCard>
 
     <!-- Passkeys -->
-    <Card class="space-y-4">
-      <div class="flex items-center gap-2">
-        <Fingerprint :size="18" class="text-primary" />
-        <h2 class="text-lg font-bold">Passkeys</h2>
-      </div>
-
-      <p class="text-muted text-sm">Sign in using a security key instead of your password.</p>
-
+    <SettingsCard :icon="Fingerprint" title="Passkeys" description="Sign in using a security key instead of your password.">
       <ConfirmDialogue
         v-if="deleteTarget"
         @dismiss="deleteTarget = null"
@@ -308,17 +290,13 @@ const formatDate = (date: Date | string): string =>
           {{ addingPasskey ? "Waiting for passkey..." : "Add a passkey" }}
         </Button>
       </div>
-    </Card>
+    </SettingsCard>
 
     <!-- Appearance -->
-    <Card class="space-y-4">
-      <div class="flex items-center gap-2">
-        <Palette :size="18" class="text-primary" />
-        <h2 class="text-lg font-bold">Appearance</h2>
-      </div>
-
-      <p class="text-muted text-sm">Choose how the dashboard looks. System follows your device settings.</p>
-
+    <SettingsCard
+      :icon="Palette"
+      title="Appearance"
+      description="Choose how the dashboard looks. System follows your device settings.">
       <div class="bg-surface-2 grid grid-cols-3 gap-1 rounded-lg p-1">
         <button
           v-for="opt in themeOptions"
@@ -330,20 +308,13 @@ const formatDate = (date: Date | string): string =>
           {{ opt.label }}
         </button>
       </div>
-    </Card>
+    </SettingsCard>
 
     <!-- API Key -->
-    <Card class="space-y-4">
-      <div class="flex items-center gap-2">
-        <KeyRound :size="18" class="text-primary" />
-        <h2 class="text-lg leading-none font-bold">API Key</h2>
-      </div>
-
-      <p class="text-muted text-sm">
-        Use this key to authenticate uploads from external clients. Keep it secret — anyone with it can upload on your
-        behalf.
-      </p>
-
+    <SettingsCard
+      :icon="KeyRound"
+      title="API Key"
+      description="Use this key to authenticate uploads from external clients. Keep it secret — anyone with it can upload on your behalf.">
       <div class="border-border bg-surface-2 flex items-center overflow-clip rounded-lg border">
         <input
           :type="revealed && token ? 'text' : 'password'"
@@ -383,6 +354,6 @@ const formatDate = (date: Date | string): string =>
           {{ resetting ? "Regenerating..." : "Regenerate" }}
         </Button>
       </div>
-    </Card>
+    </SettingsCard>
   </PageContainer>
 </template>
