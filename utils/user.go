@@ -86,7 +86,7 @@ func GetUserByID(id int) (User, error) {
 
 	user, err := scanUserRow(row)
 	if err != nil {
-		return User{}, err
+		return User{}, NotFoundIfNoRows(err, "User not found.")
 	}
 
 	return user, nil
@@ -224,7 +224,7 @@ func CreateUser(name string, password string) (User, error) {
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
-			return User{}, ErrUsernameAlreadyExists
+			return User{}, NewHTTPError(http.StatusConflict, "Username already exists.")
 		}
 
 		return User{}, err

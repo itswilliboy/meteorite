@@ -3,7 +3,6 @@ package routes
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"image"
 	"img/utils"
@@ -15,34 +14,31 @@ import (
 	"time"
 
 	"github.com/gabriel-vasile/mimetype"
-	"github.com/jackc/pgx/v5"
 )
 
 type imageUploadResponse struct {
 	URL string `json:"url"`
 }
 
-func ImageUpload(w http.ResponseWriter, r *http.Request) {
+func ImageUpload(w http.ResponseWriter, r *http.Request) error {
 	r.ParseMultipartForm(100 << 20)
 
 	file, header, err := r.FormFile("file")
 	if err != nil {
 		log.Printf("Error while retrieving file: %v\n", err)
 		utils.WriteCodeError(w, http.StatusBadRequest)
-		return
+		return nil
 	}
 	defer file.Close()
 
 	id, err := utils.GetID(10, false)
 	if err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	data, err := io.ReadAll(file)
 	if err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	mtype := mimetype.Detect(data)
@@ -104,14 +100,12 @@ func ImageUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := utils.PutObject(r.Context(), utils.MediaBucket, id, data, mtype.String()); err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 	if coverArt != nil {
 		coverType := mimetype.Detect(coverArt).String()
 		if err := utils.PutObject(r.Context(), utils.CoversBucket, id, coverArt, coverType); err != nil {
-			utils.InternalServerError(w, err)
-			return
+			return err
 		}
 	}
 
@@ -126,8 +120,7 @@ func ImageUpload(w http.ResponseWriter, r *http.Request) {
 		id, len(data), mtype.String(), userID, filename, width, height, durationMs, bitrate, codec, framerate, sampleRate, channels, coverArt != nil,
 	)
 	if err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	URL := fmt.Sprintf(`%s/%s%s`,
@@ -138,16 +131,16 @@ func ImageUpload(w http.ResponseWriter, r *http.Request) {
 
 	respJSON, err := json.Marshal(&imageUploadResponse{URL})
 	if err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(respJSON)
+	return nil
 }
 
 // /{id} --redirect--> /{user}/{id}
 
-func ImageRedirect(w http.ResponseWriter, r *http.Request) {
+func ImageRedirect(w http.ResponseWriter, r *http.Request) error {
 	filename := r.PathValue("id")
 
 	// EeZDFWheuD.png
@@ -157,12 +150,11 @@ func ImageRedirect(w http.ResponseWriter, r *http.Request) {
 	err := utils.DB.QueryRow(r.Context(), "SELECT user_id FROM media WHERE id = $1", imageID).Scan(&userID)
 	if err != nil {
 		utils.WriteCodeError(w, http.StatusNotFound)
-		return
+		return nil
 	}
 	user, err := utils.GetUserByID(userID)
 	if err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	redirectURL := fmt.Sprintf("/%s/%s", user.Name, filename)
@@ -176,9 +168,10 @@ func ImageRedirect(w http.ResponseWriter, r *http.Request) {
 	// the redirect response itself, not just the final destination
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
+	return nil
 }
 
-func ImageGet(w http.ResponseWriter, r *http.Request) {
+func ImageGet(w http.ResponseWriter, r *http.Request) error {
 	user := r.PathValue("user")
 	id := r.PathValue("id")
 	split := strings.Split(id, ".")
@@ -210,17 +203,16 @@ func ImageGet(w http.ResponseWriter, r *http.Request) {
 		).Scan(&hasCover)
 		if err != nil || !hasCover {
 			utils.WriteCodeError(w, http.StatusNotFound)
-			return
+			return nil
 		}
 
 		coverArt, err := utils.GetObject(r.Context(), utils.CoversBucket, split[0])
 		if err != nil {
 			if utils.IsNotFound(err) {
 				utils.WriteCodeError(w, http.StatusNotFound)
-				return
+				return nil
 			}
-			utils.InternalServerError(w, err)
-			return
+			return err
 		}
 
 		width := r.URL.Query().Get("width")
@@ -230,14 +222,13 @@ func ImageGet(w http.ResponseWriter, r *http.Request) {
 
 		resized, contentType, err := utils.ResizeAndEncode(coverArt, width)
 		if err != nil {
-			utils.InternalServerError(w, err)
-			return
+			return err
 		}
 
 		w.Header().Set("Content-Type", contentType)
 		w.Header().Set("Cache-Control", "public, max-age=86400")
 		http.ServeContent(w, r, "", time.Time{}, bytes.NewReader(resized))
-		return
+		return nil
 	}
 
 	var mimeType string
@@ -261,23 +252,16 @@ func ImageGet(w http.ResponseWriter, r *http.Request) {
 		split[0], user, isDashboard,
 	).Scan(&mimeType, &filename)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			utils.WriteCodeError(w, http.StatusNotFound)
-			return
-		}
-
-		utils.InternalServerError(w, err)
-		return
+		return utils.NotFoundIfNoRows(err, http.StatusText(http.StatusNotFound))
 	}
 
 	imageData, err := utils.GetObject(r.Context(), utils.MediaBucket, split[0])
 	if err != nil {
 		if utils.IsNotFound(err) {
 			utils.WriteCodeError(w, http.StatusNotFound)
-			return
+			return nil
 		}
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	if wantDownload {
@@ -293,8 +277,7 @@ func ImageGet(w http.ResponseWriter, r *http.Request) {
 	if width != "" {
 		resized, contentType, err := utils.ResizeAndEncode(imageData, width)
 		if err != nil {
-			utils.InternalServerError(w, err)
-			return
+			return err
 		}
 
 		w.Header().Set("Content-Type", contentType)
@@ -305,6 +288,7 @@ func ImageGet(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Cache-Control", "public, max-age=3600")
 	http.ServeContent(w, r, "", time.Time{}, bytes.NewReader(imageData))
+	return nil
 }
 
 type GetImagesResp struct {
@@ -337,7 +321,7 @@ var imageSortColumns = map[string]string{
 	"name_desc":  "COALESCE(filename, id) DESC",
 }
 
-func GetImages(w http.ResponseWriter, r *http.Request) {
+func GetImages(w http.ResponseWriter, r *http.Request) error {
 	userID := utils.GetUserID(r)
 
 	page, err := strconv.Atoi(r.URL.Query().Get("page"))
@@ -372,8 +356,7 @@ func GetImages(w http.ResponseWriter, r *http.Request) {
 		userID, offset, pageSize+1,
 	)
 	if err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 	defer rows.Close()
 
@@ -387,8 +370,7 @@ func GetImages(w http.ResponseWriter, r *http.Request) {
 			&img.Width, &img.Height, &img.DurationMs, &img.Bitrate, &img.Codec, &img.Framerate, &img.SampleRate, &img.Channels,
 			&img.HasCover,
 		); err != nil {
-			utils.InternalServerError(w, err)
-			return
+			return err
 		}
 
 		img.Date = date
@@ -402,8 +384,7 @@ func GetImages(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := rows.Err(); err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	hasNext := len(images) > pageSize
@@ -420,9 +401,10 @@ func GetImages(w http.ResponseWriter, r *http.Request) {
 		HasNext:      hasNext,
 		HasPrev:      hasPrev,
 	})
+	return nil
 }
 
-func DeleteImage(w http.ResponseWriter, r *http.Request) {
+func DeleteImage(w http.ResponseWriter, r *http.Request) error {
 	userID := utils.GetUserID(r)
 	imageID := r.URL.Query().Get("id")
 
@@ -445,8 +427,7 @@ func DeleteImage(w http.ResponseWriter, r *http.Request) {
 		imageID, userID,
 	).Scan(&deleted, &hasCover)
 	if err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	if deleted {
@@ -460,7 +441,8 @@ func DeleteImage(w http.ResponseWriter, r *http.Request) {
 		}
 
 		utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusOK})
-		return
+		return nil
 	}
 	utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusNotFound})
+	return nil
 }

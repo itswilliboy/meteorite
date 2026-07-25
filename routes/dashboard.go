@@ -20,77 +20,55 @@ type changePasswordReceive struct {
 	NewPassword string `json:"new_password"`
 }
 
-func RegisterUser(w http.ResponseWriter, r *http.Request) {
+func RegisterUser(w http.ResponseWriter, r *http.Request) error {
 	payload, err := utils.ReadJSONBody[*userReceive](w, r.Body, 1<<20)
 	if err != nil {
-		if errors.Is(err, utils.ErrUnknownJSONFields) {
-			utils.WriteJSONError(w, http.StatusBadRequest, "Unknown JSON fields.")
-			return
-		}
-
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	user, err := utils.CreateUser(payload.Username, payload.Password)
 	if err != nil {
-		if errors.Is(err, utils.ErrUsernameAlreadyExists) {
-			utils.WriteJSONError(w, http.StatusConflict, "Username already exists")
-			return
-		}
-
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	resp := utils.JSONResponse{Status: 200, Data: user}
 	utils.WriteJSONBody(w, resp)
+	return nil
 }
 
-func ChangePassword(w http.ResponseWriter, r *http.Request) {
+func ChangePassword(w http.ResponseWriter, r *http.Request) error {
 	payload, err := utils.ReadJSONBody[*changePasswordReceive](w, r.Body, 1<<20)
 	if err != nil {
-		if errors.Is(err, utils.ErrUnknownJSONFields) {
-			utils.WriteJSONError(w, http.StatusBadRequest, "Unknown JSON fields.")
-			return
-		}
-
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	userID := utils.GetUserID(r)
 	user, err := utils.GetUserByID(userID)
 	if err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	var oldHash []byte
 	err = utils.DB.QueryRow(r.Context(), "SELECT password FROM users WHERE id = $1", userID).Scan(&oldHash)
 	if err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	err = bcrypt.CompareHashAndPassword(oldHash, []byte(payload.OldPassword))
 	if err != nil {
 		utils.WriteJSONError(w, http.StatusForbidden, "Old password does not match.")
-		return
+		return nil
 	}
 	if err := user.SetPassword(payload.NewPassword); err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	if err := user.BumpSessionVersion(); err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	if _, err := utils.DB.Exec(r.Context(), "DELETE FROM tokens WHERE user_id = $1", userID); err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	cookie := utils.CreateDashSessionCookie(user)
@@ -98,29 +76,23 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	resp := utils.JSONResponse{Status: 200, Data: "ok"}
 	utils.WriteJSONBody(w, resp)
+	return nil
 }
 
-func LoginUser(w http.ResponseWriter, r *http.Request) {
+func LoginUser(w http.ResponseWriter, r *http.Request) error {
 	payload, err := utils.ReadJSONBody[*userReceive](w, r.Body, 1<<20)
 	if err != nil {
-		if errors.Is(err, utils.ErrUnknownJSONFields) {
-			utils.WriteJSONError(w, http.StatusBadRequest, "Unknown JSON fields.")
-			return
-		}
-
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	user, err := utils.LoginUser(payload.Username, payload.Password)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
 			utils.WriteCodeError(w, http.StatusUnauthorized)
-			return
+			return nil
 		}
 
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	cookie := utils.CreateDashSessionCookie(user)
@@ -128,6 +100,7 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 
 	resp := utils.JSONResponse{Status: 200, Data: user}
 	utils.WriteJSONBody(w, resp)
+	return nil
 }
 
 type dashboardStatistics struct {
@@ -137,7 +110,7 @@ type dashboardStatistics struct {
 	UserBandwidth  int64 `json:"user_bandwidth"`
 }
 
-func DashboardStatistics(w http.ResponseWriter, r *http.Request) {
+func DashboardStatistics(w http.ResponseWriter, r *http.Request) error {
 	userID := utils.GetUserID(r)
 	query := `
 		SELECT
@@ -155,12 +128,12 @@ func DashboardStatistics(w http.ResponseWriter, r *http.Request) {
 	var stats dashboardStatistics
 	err := utils.DB.QueryRow(r.Context(), query, userID).Scan(&stats.TotalImages, &stats.StorageUsage, &stats.MonthlyUploads, &stats.UserBandwidth)
 	if err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	p := utils.JSONResponse{Status: http.StatusOK, Data: stats}
 	utils.WriteJSONBody(w, p)
+	return nil
 }
 
 type dailyStat struct {
@@ -174,7 +147,7 @@ type timeseriesResponse struct {
 	BaselineBytes int64       `json:"baseline_bytes"`
 }
 
-func DashboardTimeseries(w http.ResponseWriter, r *http.Request) {
+func DashboardTimeseries(w http.ResponseWriter, r *http.Request) error {
 	userID := utils.GetUserID(r)
 
 	const windowDays = 29
@@ -206,8 +179,7 @@ func DashboardTimeseries(w http.ResponseWriter, r *http.Request) {
 		userID, windowDays,
 	)
 	if err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 	defer rows.Close()
 
@@ -216,15 +188,13 @@ func DashboardTimeseries(w http.ResponseWriter, r *http.Request) {
 		var day time.Time
 		var stat dailyStat
 		if err := rows.Scan(&day, &stat.Uploads, &stat.Bytes); err != nil {
-			utils.InternalServerError(w, err)
-			return
+			return err
 		}
 		stat.Date = day.Format("2006-01-02")
 		days = append(days, stat)
 	}
 	if err := rows.Err(); err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	var windowBytes, totalBytes int64
@@ -237,45 +207,45 @@ func DashboardTimeseries(w http.ResponseWriter, r *http.Request) {
 		userID,
 	).Scan(&totalBytes)
 	if err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	resp := timeseriesResponse{Days: days, BaselineBytes: totalBytes - windowBytes}
 	utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusOK, Data: resp})
+	return nil
 }
 
-func DashboardPing(w http.ResponseWriter, r *http.Request) {
+func DashboardPing(w http.ResponseWriter, r *http.Request) error {
 	p := utils.JSONResponse{Status: http.StatusOK, Data: "pong"}
 	utils.WriteJSONBody(w, p)
+	return nil
 }
 
-func ResetToken(w http.ResponseWriter, r *http.Request) {
+func ResetToken(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	userID := utils.GetUserID(r)
 
 	token, err := utils.CreateToken(userID)
 	if err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	_, err = utils.DB.Exec(ctx, `
-		INSERT INTO tokens (user_id, token) 
+		INSERT INTO tokens (user_id, token)
 			VALUES ($1, $2)
-		ON CONFLICT (user_id) 
+		ON CONFLICT (user_id)
 			DO UPDATE SET token = $2
 	`, userID, token)
 	if err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	p := utils.JSONResponse{Status: http.StatusOK, Data: token}
 	utils.WriteJSONBody(w, p)
+	return nil
 }
 
-func LogoutUser(w http.ResponseWriter, r *http.Request) {
+func LogoutUser(w http.ResponseWriter, r *http.Request) error {
 	cookie := utils.CreateInvalidDashSessionCookie()
 	http.SetCookie(w, &cookie)
 
@@ -283,4 +253,5 @@ func LogoutUser(w http.ResponseWriter, r *http.Request) {
 
 	resp := utils.JSONResponse{Status: 200, Data: "ok"}
 	utils.WriteJSONBody(w, resp)
+	return nil
 }

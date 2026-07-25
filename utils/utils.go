@@ -4,6 +4,7 @@ import (
 	"context"
 	b64 "encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -45,6 +46,25 @@ func WriteCodeError(w http.ResponseWriter, code int) {
 func InternalServerError(w http.ResponseWriter, err error) {
 	log.Println("Error: ", err)
 	WriteJSONError(w, http.StatusInternalServerError, "Something went wrong.")
+}
+
+type APIHandler func(w http.ResponseWriter, r *http.Request) error
+
+func Wrap(h APIHandler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		err := h(w, r)
+		if err == nil {
+			return
+		}
+
+		var httpErr *HTTPError
+		if errors.As(err, &httpErr) {
+			WriteJSONError(w, httpErr.Status, httpErr.Message)
+			return
+		}
+
+		InternalServerError(w, err)
+	}
 }
 
 func GetDBConnectionPool() *pgxpool.Pool {
@@ -160,7 +180,7 @@ func ReadJSONBody[T any](writer http.ResponseWriter, body io.ReadCloser, maxSize
 	if err != nil {
 		var zero T
 		if strings.HasPrefix(err.Error(), "json: unknown field") {
-			return zero, ErrUnknownJSONFields
+			return zero, NewHTTPError(http.StatusBadRequest, "Unknown JSON fields.")
 		}
 
 		return zero, err

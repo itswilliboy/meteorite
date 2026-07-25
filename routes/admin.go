@@ -1,13 +1,10 @@
 package routes
 
 import (
-	"errors"
 	"img/utils"
 	"net/http"
 	"strconv"
 	"time"
-
-	"github.com/jackc/pgx/v5"
 )
 
 type adminStatistics struct {
@@ -17,7 +14,7 @@ type adminStatistics struct {
 	TotalStorage int64 `json:"total_storage"`
 }
 
-func AdminStatistics(w http.ResponseWriter, r *http.Request) {
+func AdminStatistics(w http.ResponseWriter, r *http.Request) error {
 	query := `
 		SELECT
 			(SELECT COUNT(*) FROM users),
@@ -29,11 +26,11 @@ func AdminStatistics(w http.ResponseWriter, r *http.Request) {
 	var stats adminStatistics
 	err := utils.DB.QueryRow(r.Context(), query).Scan(&stats.TotalUsers, &stats.ActiveUsers, &stats.TotalMedia, &stats.TotalStorage)
 	if err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusOK, Data: stats})
+	return nil
 }
 
 type adminUserRow struct {
@@ -46,7 +43,7 @@ type adminUserRow struct {
 	StorageUsed int64     `json:"storage_usage"`
 }
 
-func AdminListUsers(w http.ResponseWriter, r *http.Request) {
+func AdminListUsers(w http.ResponseWriter, r *http.Request) error {
 	page, err := strconv.Atoi(r.URL.Query().Get("page"))
 	if err != nil || page < 0 {
 		page = 0
@@ -72,8 +69,7 @@ func AdminListUsers(w http.ResponseWriter, r *http.Request) {
 		offset, pageSize+1,
 	)
 	if err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 	defer rows.Close()
 
@@ -81,14 +77,12 @@ func AdminListUsers(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var u adminUserRow
 		if err := rows.Scan(&u.ID, &u.Name, &u.CreatedAt, &u.Enabled, &u.Admin, &u.TotalImages, &u.StorageUsed); err != nil {
-			utils.InternalServerError(w, err)
-			return
+			return err
 		}
 		users = append(users, u)
 	}
 	if err := rows.Err(); err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	hasNext := len(users) > pageSize
@@ -105,6 +99,7 @@ func AdminListUsers(w http.ResponseWriter, r *http.Request) {
 		HasNext:      hasNext,
 		HasPrev:      hasPrev,
 	})
+	return nil
 }
 
 type adminCreateUserReceive struct {
@@ -113,41 +108,29 @@ type adminCreateUserReceive struct {
 	Admin    bool   `json:"admin"`
 }
 
-func AdminCreateUser(w http.ResponseWriter, r *http.Request) {
+func AdminCreateUser(w http.ResponseWriter, r *http.Request) error {
 	payload, err := utils.ReadJSONBody[*adminCreateUserReceive](w, r.Body, 1<<10)
 	if err != nil {
-		if errors.Is(err, utils.ErrUnknownJSONFields) {
-			utils.WriteJSONError(w, http.StatusBadRequest, "Unknown JSON fields.")
-			return
-		}
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	if payload.Username == "" || payload.Password == "" {
 		utils.WriteJSONError(w, http.StatusBadRequest, "Username and password are required.")
-		return
+		return nil
 	}
 
 	user, err := utils.CreateUser(payload.Username, payload.Password)
 	if err != nil {
-		if errors.Is(err, utils.ErrUsernameAlreadyExists) {
-			utils.WriteJSONError(w, http.StatusConflict, "Username already exists.")
-			return
-		}
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	if err := user.SetEnabled(true); err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	if payload.Admin {
 		if err := user.SetAdmin(true); err != nil {
-			utils.InternalServerError(w, err)
-			return
+			return err
 		}
 	}
 
@@ -158,6 +141,7 @@ func AdminCreateUser(w http.ResponseWriter, r *http.Request) {
 		Enabled:   user.Enabled,
 		Admin:     user.Admin,
 	}})
+	return nil
 }
 
 type mediaTypeBreakdown struct {
@@ -173,11 +157,11 @@ type adminUserDetail struct {
 	MediaTypes mediaTypeBreakdown `json:"media_types"`
 }
 
-func AdminGetUser(w http.ResponseWriter, r *http.Request) {
+func AdminGetUser(w http.ResponseWriter, r *http.Request) error {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		utils.WriteJSONError(w, http.StatusBadRequest, "Invalid user id.")
-		return
+		return nil
 	}
 
 	var u adminUserDetail
@@ -208,101 +192,77 @@ func AdminGetUser(w http.ResponseWriter, r *http.Request) {
 		&u.MediaTypes.Images, &u.MediaTypes.Videos, &u.MediaTypes.Audio, &u.MediaTypes.Other,
 	)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			utils.WriteCodeError(w, http.StatusNotFound)
-			return
-		}
-		utils.InternalServerError(w, err)
-		return
+		return utils.NotFoundIfNoRows(err, "User not found.")
 	}
 
 	utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusOK, Data: u})
+	return nil
 }
 
 type setEnabledReceive struct {
 	Enabled bool `json:"enabled"`
 }
 
-func AdminSetUserEnabled(w http.ResponseWriter, r *http.Request) {
+func AdminSetUserEnabled(w http.ResponseWriter, r *http.Request) error {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		utils.WriteJSONError(w, http.StatusBadRequest, "Invalid user id.")
-		return
+		return nil
 	}
 
 	if id == utils.GetUserID(r) {
 		utils.WriteJSONError(w, http.StatusBadRequest, "You cannot change your own enabled status.")
-		return
+		return nil
 	}
 
 	payload, err := utils.ReadJSONBody[*setEnabledReceive](w, r.Body, 1<<10)
 	if err != nil {
-		if errors.Is(err, utils.ErrUnknownJSONFields) {
-			utils.WriteJSONError(w, http.StatusBadRequest, "Unknown JSON fields.")
-			return
-		}
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	user, err := utils.GetUserByID(id)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			utils.WriteCodeError(w, http.StatusNotFound)
-			return
-		}
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	if err := user.SetEnabled(payload.Enabled); err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusOK, Data: user})
+	return nil
 }
 
 type setAdminReceive struct {
 	Admin bool `json:"admin"`
 }
 
-func AdminSetUserAdmin(w http.ResponseWriter, r *http.Request) {
+func AdminSetUserAdmin(w http.ResponseWriter, r *http.Request) error {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		utils.WriteJSONError(w, http.StatusBadRequest, "Invalid user id.")
-		return
+		return nil
 	}
 
 	if id == utils.GetUserID(r) {
 		utils.WriteJSONError(w, http.StatusBadRequest, "You cannot change your own admin status.")
-		return
+		return nil
 	}
 
 	payload, err := utils.ReadJSONBody[*setAdminReceive](w, r.Body, 1<<10)
 	if err != nil {
-		if errors.Is(err, utils.ErrUnknownJSONFields) {
-			utils.WriteJSONError(w, http.StatusBadRequest, "Unknown JSON fields.")
-			return
-		}
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	user, err := utils.GetUserByID(id)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			utils.WriteCodeError(w, http.StatusNotFound)
-			return
-		}
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	if err := user.SetAdmin(payload.Admin); err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusOK, Data: user})
+	return nil
 }

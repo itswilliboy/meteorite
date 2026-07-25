@@ -66,43 +66,43 @@ func main() {
 
 	r.Mount("/app", app())
 	r.Route("/api", func(r chi.Router) {
-		r.Post("/register", routes.RegisterUser)
-		r.Post("/login", routes.LoginUser)
+		r.Post("/register", utils.Wrap(routes.RegisterUser))
+		r.Post("/login", utils.Wrap(routes.LoginUser))
 
-		r.Post("/webauthn/login/begin", routes.WebAuthnLoginBegin)
-		r.Post("/webauthn/login/finish", routes.WebAuthnLoginFinish)
+		r.Post("/webauthn/login/begin", utils.Wrap(routes.WebAuthnLoginBegin))
+		r.Post("/webauthn/login/finish", utils.Wrap(routes.WebAuthnLoginFinish))
 
 		r.Group(func(r chi.Router) {
 			r.Use(DashAuthMiddleware)
 
-			r.Post("/logout", routes.LogoutUser)
-			r.Post("/reset-token", routes.ResetToken)
+			r.Post("/logout", utils.Wrap(routes.LogoutUser))
+			r.Post("/reset-token", utils.Wrap(routes.ResetToken))
 
-			r.Get("/ping", routes.DashboardPing)
-			r.Get("/stats", routes.DashboardStatistics)
-			r.Get("/stats/timeseries", routes.DashboardTimeseries)
+			r.Get("/ping", utils.Wrap(routes.DashboardPing))
+			r.Get("/stats", utils.Wrap(routes.DashboardStatistics))
+			r.Get("/stats/timeseries", utils.Wrap(routes.DashboardTimeseries))
 
-			r.Get("/get-images", routes.GetImages)
-			r.Post("/upload", routes.ImageUpload)
-			r.Post("/delete-image", routes.DeleteImage)
+			r.Get("/get-images", utils.Wrap(routes.GetImages))
+			r.Post("/upload", utils.Wrap(routes.ImageUpload))
+			r.Post("/delete-image", utils.Wrap(routes.DeleteImage))
 
-			r.Post("/change-password", routes.ChangePassword)
+			r.Post("/change-password", utils.Wrap(routes.ChangePassword))
 
-			r.Post("/webauthn/register/begin", routes.WebAuthnRegisterBegin)
-			r.Post("/webauthn/register/finish", routes.WebAuthnRegisterFinish)
-			r.Get("/webauthn/credentials", routes.WebAuthnListCredentials)
-			r.Post("/webauthn/credentials/{id}/delete", routes.WebAuthnDeleteCredential)
+			r.Post("/webauthn/register/begin", utils.Wrap(routes.WebAuthnRegisterBegin))
+			r.Post("/webauthn/register/finish", utils.Wrap(routes.WebAuthnRegisterFinish))
+			r.Get("/webauthn/credentials", utils.Wrap(routes.WebAuthnListCredentials))
+			r.Post("/webauthn/credentials/{id}/delete", utils.Wrap(routes.WebAuthnDeleteCredential))
 		})
 
 		r.Route("/admin", func(r chi.Router) {
 			r.Use(DashAuthAdminMiddleware)
 
-			r.Get("/stats", routes.AdminStatistics)
-			r.Get("/users", routes.AdminListUsers)
-			r.Post("/users", routes.AdminCreateUser)
-			r.Get("/users/{id}", routes.AdminGetUser)
-			r.Post("/users/{id}/enabled", routes.AdminSetUserEnabled)
-			r.Post("/users/{id}/admin", routes.AdminSetUserAdmin)
+			r.Get("/stats", utils.Wrap(routes.AdminStatistics))
+			r.Get("/users", utils.Wrap(routes.AdminListUsers))
+			r.Post("/users", utils.Wrap(routes.AdminCreateUser))
+			r.Get("/users/{id}", utils.Wrap(routes.AdminGetUser))
+			r.Post("/users/{id}/enabled", utils.Wrap(routes.AdminSetUserEnabled))
+			r.Post("/users/{id}/admin", utils.Wrap(routes.AdminSetUserAdmin))
 		})
 	})
 
@@ -110,12 +110,12 @@ func main() {
 	r.Group(func(r chi.Router) {
 		r.Use(AuthMiddleware)
 
-		r.Post("/upload", routes.ImageUpload)
+		r.Post("/upload", utils.Wrap(routes.ImageUpload))
 	})
 
 	// Wildcards
-	r.Get("/{user}/{id}", routes.ImageGet)
-	r.Get("/{id}", routes.ImageRedirect)
+	r.Get("/{user}/{id}", utils.Wrap(routes.ImageGet))
+	r.Get("/{id}", utils.Wrap(routes.ImageRedirect))
 
 	log.Println("Listening and serving on port 3000")
 	err := http.ListenAndServe(":3000", r)

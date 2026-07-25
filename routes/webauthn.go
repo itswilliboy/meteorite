@@ -17,15 +17,14 @@ func webAuthnUnavailable(w http.ResponseWriter) bool {
 	return false
 }
 
-func WebAuthnRegisterBegin(w http.ResponseWriter, r *http.Request) {
+func WebAuthnRegisterBegin(w http.ResponseWriter, r *http.Request) error {
 	if webAuthnUnavailable(w) {
-		return
+		return nil
 	}
 
 	user, err := utils.LoadWebAuthnUser(utils.GetUserID(r))
 	if err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	options, session, err := utils.WebAuthnAPI.BeginRegistration(
@@ -34,23 +33,22 @@ func WebAuthnRegisterBegin(w http.ResponseWriter, r *http.Request) {
 		webauthn.WithExclusions(webauthn.Credentials(user.WebAuthnCredentials()).CredentialDescriptors()),
 	)
 	if err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	cookie, err := utils.CreateChallengeCookie(session)
 	if err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 	http.SetCookie(w, &cookie)
 
 	utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusOK, Data: options.Response})
+	return nil
 }
 
-func WebAuthnRegisterFinish(w http.ResponseWriter, r *http.Request) {
+func WebAuthnRegisterFinish(w http.ResponseWriter, r *http.Request) error {
 	if webAuthnUnavailable(w) {
-		return
+		return nil
 	}
 
 	userID := utils.GetUserID(r)
@@ -63,85 +61,80 @@ func WebAuthnRegisterFinish(w http.ResponseWriter, r *http.Request) {
 	session, err := utils.ReadChallengeCookie(r)
 	if err != nil {
 		utils.WriteJSONError(w, http.StatusBadRequest, "Passkey registration expired, please try again.")
-		return
+		return nil
 	}
 
 	user, err := utils.LoadWebAuthnUser(userID)
 	if err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	credential, err := utils.WebAuthnAPI.FinishRegistration(user, *session, r)
 	if err != nil {
 		utils.WriteJSONError(w, http.StatusBadRequest, "Could not verify passkey.")
-		return
+		return nil
 	}
 
 	if err := utils.SaveCredential(userID, name, credential); err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	clearCookie := utils.ClearChallengeCookie()
 	http.SetCookie(w, &clearCookie)
 
 	utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusOK})
+	return nil
 }
 
-func WebAuthnLoginBegin(w http.ResponseWriter, r *http.Request) {
+func WebAuthnLoginBegin(w http.ResponseWriter, r *http.Request) error {
 	if webAuthnUnavailable(w) {
-		return
+		return nil
 	}
 
 	options, session, err := utils.WebAuthnAPI.BeginDiscoverableLogin()
 	if err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	cookie, err := utils.CreateChallengeCookie(session)
 	if err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 	http.SetCookie(w, &cookie)
 
 	utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusOK, Data: options.Response})
+	return nil
 }
 
-func WebAuthnLoginFinish(w http.ResponseWriter, r *http.Request) {
+func WebAuthnLoginFinish(w http.ResponseWriter, r *http.Request) error {
 	if webAuthnUnavailable(w) {
-		return
+		return nil
 	}
 
 	session, err := utils.ReadChallengeCookie(r)
 	if err != nil {
 		utils.WriteCodeError(w, http.StatusUnauthorized)
-		return
+		return nil
 	}
 
 	authenticatedUser, credential, err := utils.WebAuthnAPI.FinishPasskeyLogin(utils.LoadWebAuthnUserByHandle, *session, r)
 	if err != nil {
 		utils.WriteCodeError(w, http.StatusUnauthorized)
-		return
+		return nil
 	}
 
 	if err := utils.UpdateCredentialSignCount(credential); err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	userID, err := utils.ParseWebAuthnUserID(authenticatedUser)
 	if err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	user, err := utils.GetUserByID(userID)
 	if err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	clearCookie := utils.ClearChallengeCookie()
@@ -151,29 +144,30 @@ func WebAuthnLoginFinish(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &sessionCookie)
 
 	utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusOK, Data: user})
+	return nil
 }
 
-func WebAuthnListCredentials(w http.ResponseWriter, r *http.Request) {
+func WebAuthnListCredentials(w http.ResponseWriter, r *http.Request) error {
 	list, err := utils.ListCredentials(utils.GetUserID(r))
 	if err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusOK, Data: list})
+	return nil
 }
 
-func WebAuthnDeleteCredential(w http.ResponseWriter, r *http.Request) {
+func WebAuthnDeleteCredential(w http.ResponseWriter, r *http.Request) error {
 	id, err := base64.RawURLEncoding.DecodeString(r.PathValue("id"))
 	if err != nil {
 		utils.WriteCodeError(w, http.StatusBadRequest)
-		return
+		return nil
 	}
 
 	if err := utils.DeleteCredential(utils.GetUserID(r), id); err != nil {
-		utils.InternalServerError(w, err)
-		return
+		return err
 	}
 
 	utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusOK})
+	return nil
 }
