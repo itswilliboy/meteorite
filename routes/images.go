@@ -188,6 +188,10 @@ func ImageGet(w http.ResponseWriter, r *http.Request) {
 	// preview, which fetches the body via JS) doesn't expose anything new
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
+	// sandbox to prevent potential malice
+	w.Header().Set("Content-Security-Policy", "sandbox allow-scripts")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+
 	isDashboard := (r.URL.Query().Get("d") == "true")
 	wantCover := (r.URL.Query().Get("cover") == "true")
 	wantDownload := (r.URL.Query().Get("download") == "true")
