@@ -83,7 +83,7 @@ const onTileClick = () => {
         :thumbnail="true"
         :fit="fit"
         :thumbnail-width="thumbnailWidth"
-        class="*size-full block! size-full *:rounded-none!" />
+        class="*:size-full! block! size-full *:rounded-none!" />
     </div>
 
     <div
