@@ -347,7 +347,7 @@ func GetImages(w http.ResponseWriter, r *http.Request) error {
 					has_cover
 				FROM media
 				WHERE user_id = $1
-				ORDER BY %s
+				ORDER BY %s, id DESC
 				OFFSET ($2)
 				LIMIT $3;
 			`,
