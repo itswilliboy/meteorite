@@ -85,6 +85,14 @@ func main() {
 			r.Get("/get-images", utils.Wrap(routes.GetImages))
 			r.Post("/upload", utils.Wrap(routes.ImageUpload))
 			r.Post("/delete-image", utils.Wrap(routes.DeleteImage))
+			r.Post("/bulk-delete-images", utils.Wrap(routes.BulkDeleteImages))
+			r.Post("/bulk-move-images", utils.Wrap(routes.BulkMoveImages))
+
+			r.Get("/folders", utils.Wrap(routes.GetFolders))
+			r.Post("/folders", utils.Wrap(routes.CreateFolder))
+			r.Post("/folders/{id}/rename", utils.Wrap(routes.RenameFolder))
+			r.Post("/folders/{id}/move", utils.Wrap(routes.MoveFolder))
+			r.Post("/folders/{id}/delete", utils.Wrap(routes.DeleteFolder))
 
 			r.Post("/change-password", utils.Wrap(routes.ChangePassword))
 

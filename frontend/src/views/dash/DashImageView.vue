@@ -2,16 +2,22 @@
 import Card from "@/components/Card.vue"
 import { Button } from "@/components/common"
 import ImageCard from "@/components/ImageCard.vue"
+import ImageListRow from "@/components/ImageListRow.vue"
+import FolderItem from "@/components/FolderItem.vue"
+import FolderNameDialog from "@/components/FolderNameDialog.vue"
+import MoveToFolderDialog from "@/components/MoveToFolderDialog.vue"
 import PageContainer from "@/components/PageContainer.vue"
 import FileDrop from "@/components/FileDrop.vue"
 import ConfirmDialogue from "@/components/ConfirmDialogue.vue"
 import useClient from "@/composables/useClient"
+import { HTTPException } from "@/utils/client"
 import useToaster from "@/composables/useToaster"
 import { bumpMediaVersion } from "@/composables/useMediaVersion"
 import { useInfiniteScroll } from "@/composables/useInfiniteScroll"
 import { formatBytes } from "@/utils/format"
-import type { Image } from "@/utils/type"
-import { computed, nextTick, onBeforeUnmount, ref, useTemplateRef } from "vue"
+import type { BreadcrumbEntry, Folder, Image } from "@/utils/type"
+import { computed, nextTick, onBeforeUnmount, ref, useTemplateRef, watch } from "vue"
+import { useRoute, useRouter } from "vue-router"
 import {
   ListChecksIcon,
   LucideLoader2,
@@ -20,14 +26,141 @@ import {
   Grid2x2Icon,
   Grid3x3Icon,
   LayoutGridIcon,
+  LayoutListIcon,
   CropIcon,
-  ExpandIcon
+  ExpandIcon,
+  FolderPlusIcon,
+  HomeIcon,
+  ChevronRightIcon,
+  MoveIcon
 } from "lucide-vue-next"
 
 defineOptions({ name: "DashImageView" })
 
 const client = useClient()
 const { push } = useToaster()
+const route = useRoute()
+const router = useRouter()
+
+const currentFolderId = computed<string | null>(() => (typeof route.query.folder === "string" ? route.query.folder : null))
+
+const folders = ref<Folder[]>([])
+const breadcrumb = ref<BreadcrumbEntry[]>([])
+
+const loadFolders = async () => {
+  const requestedFolderId = currentFolderId.value
+  const resp = await client.getFolders(requestedFolderId)
+  if (currentFolderId.value !== requestedFolderId) return
+  folders.value = resp.folders
+  breadcrumb.value = resp.breadcrumb
+}
+
+const openFolder = (id: string | null) => {
+  router.push({ query: { ...route.query, folder: id ?? undefined } })
+}
+
+const newFolderDialogOpen = ref(false)
+const renameFolderTarget = ref<Folder | null>(null)
+const deleteFolderTarget = ref<Folder | null>(null)
+const moveDialogOpen = ref(false)
+
+const createFolder = async (name: string) => {
+  try {
+    await client.createFolder(name, currentFolderId.value)
+    push({ title: `Created folder "${name}"`, colour: "success", delay: 4000 })
+    await loadFolders()
+  } catch (e) {
+    push({ title: e instanceof HTTPException ? e.message : "Could not create folder", colour: "danger", delay: 6000 })
+  }
+}
+
+const renameFolder = async (name: string) => {
+  if (!renameFolderTarget.value) return
+  try {
+    await client.renameFolder(renameFolderTarget.value.id, name)
+    await loadFolders()
+  } catch (e) {
+    push({ title: e instanceof HTTPException ? e.message : "Could not rename folder", colour: "danger", delay: 6000 })
+  }
+}
+
+const deleteFolder = async () => {
+  if (!deleteFolderTarget.value) return
+  const name = deleteFolderTarget.value.name
+  try {
+    await client.deleteFolder(deleteFolderTarget.value.id)
+    push({ title: `Deleted folder "${name}"`, colour: "info", delay: 4000 })
+    await loadFolders()
+    bumpMediaVersion()
+  } catch (e) {
+    push({ title: e instanceof HTTPException ? e.message : "Could not delete folder", colour: "danger", delay: 6000 })
+  }
+}
+
+const bulkMove = async (folderId: string | null) => {
+  const ids = [...selected.value]
+
+  try {
+    await client.bulkMoveImages(ids, folderId)
+  } catch (e) {
+    push({ title: e instanceof HTTPException ? e.message : "Could not move items", colour: "danger", delay: 6000 })
+    return
+  }
+
+  if (folderId !== currentFolderId.value) {
+    images.value = images.value.filter(img => !selected.value.has(img.id))
+  }
+
+  push({ title: `Moved ${ids.length} ${ids.length === 1 ? "item" : "items"}`, delay: 4000, colour: "info" })
+  selected.value.clear()
+  selectedSizes.value.clear()
+  selectMode.value = false
+  moveDialogOpen.value = false
+  bumpMediaVersion()
+}
+
+const moveImageToFolder = async (id: string, folderId: string | null, folderName: string) => {
+  if (folderId === currentFolderId.value) return
+
+  try {
+    await client.bulkMoveImages([id], folderId)
+  } catch (e) {
+    push({ title: e instanceof HTTPException ? e.message : "Could not move item", colour: "danger", delay: 6000 })
+    return
+  }
+
+  images.value = images.value.filter(img => img.id !== id)
+  selected.value.delete(id)
+  selectedSizes.value.delete(id)
+  push({ title: `Moved to "${folderName}"`, colour: "info", delay: 4000 })
+  bumpMediaVersion()
+}
+
+const moveSingleViaMenu = (id: string) => {
+  const image = images.value.find(img => img.id === id)
+  if (!image) return
+
+  selected.value = new Set([id])
+  selectedSizes.value = new Map([[id, image.size]])
+  moveDialogOpen.value = true
+}
+
+const draggingImageId = ref<string | null>(null)
+
+const onImageDragStart = (e: DragEvent, id: string) => {
+  draggingImageId.value = id
+  e.dataTransfer?.setData("text/plain", id)
+  if (e.dataTransfer) e.dataTransfer.effectAllowed = "move"
+}
+
+const onImageDragEnd = () => {
+  draggingImageId.value = null
+}
+
+const onBreadcrumbDrop = (e: DragEvent, folderId: string | null, folderName: string) => {
+  const id = e.dataTransfer?.getData("text/plain")
+  if (id) moveImageToFolder(id, folderId, folderName)
+}
 
 const images = ref<Image[]>([])
 const page = ref(-1)
@@ -58,6 +191,17 @@ const sortOptions = [
 ] as const
 
 const sort = ref<(typeof sortOptions)[number]["value"]>("date_desc")
+
+type ViewMode = "grid" | "list"
+const viewModeOptions: { value: ViewMode; icon: typeof LayoutGridIcon; title: string }[] = [
+  { value: "grid", icon: LayoutGridIcon, title: "Grid view" },
+  { value: "list", icon: LayoutListIcon, title: "List view" }
+]
+const viewMode = ref<ViewMode>((localStorage.getItem("gallery-view-mode") as ViewMode) || "grid")
+const setViewMode = (value: ViewMode) => {
+  viewMode.value = value
+  localStorage.setItem("gallery-view-mode", value)
+}
 
 type GridSize = "small" | "medium" | "large"
 const gridSizeOptions: { value: GridSize; icon: typeof Grid2x2Icon; title: string }[] = [
@@ -96,9 +240,15 @@ const thumbnailWidth = computed(() =>
 const loadMore = async (): Promise<boolean> => {
   if (loadingMore.value || !hasNext.value) return false
 
+  const requestedFolderId = currentFolderId.value
+  const requestedSort = sort.value
+  const requestedPage = page.value + 1
+
   loadingMore.value = true
   try {
-    const resp = await client.getImages(page.value + 1, sort.value)
+    const resp = await client.getImages(requestedPage, requestedSort, requestedFolderId)
+    if (currentFolderId.value !== requestedFolderId || sort.value !== requestedSort) return false
+
     images.value.push(...resp.data)
     page.value = resp.page
     hasNext.value = resp.hasNext
@@ -122,6 +272,18 @@ const resetAndReload = async () => {
 const onSortChange = () => {
   resetAndReload()
 }
+
+watch(
+  currentFolderId,
+  () => {
+    selectMode.value = false
+    selected.value.clear()
+    selectedSizes.value.clear()
+    loadFolders()
+    resetAndReload()
+  },
+  { immediate: true }
+)
 
 const resetDragState = () => {
   window.removeEventListener("pointermove", onGridPointerMove)
@@ -168,6 +330,13 @@ const selectRange = (fromIdx: number, toIdx: number) => {
   for (let i = start; i <= end; i++) applySelection(images.value[i].id, true)
 }
 
+const selectSingleViaMenu = (id: string) => {
+  selectMode.value = true
+  applySelection(id, true)
+  const idx = images.value.findIndex(img => img.id === id)
+  if (idx !== -1) lastSelectedIndex.value = idx
+}
+
 const cardRefs = new Map<string, HTMLElement>()
 const setTileRef = (id: string, el: Element | null) => {
   if (el instanceof HTMLElement) cardRefs.set(id, el)
@@ -180,7 +349,6 @@ const dragStart = ref<{ x: number; y: number } | null>(null)
 const dragCurrent = ref<{ x: number; y: number } | null>(null)
 const isDragging = ref(false)
 const dragPendingId = ref<string | null>(null)
-const dragAdditive = ref(false)
 const dragSnapshot = ref<Set<string>>(new Set())
 let rafId: number | null = null
 
@@ -205,7 +373,7 @@ const updateMarqueeSelection = () => {
     }
   }
 
-  const next = dragAdditive.value ? new Set([...dragSnapshot.value, ...intersecting]) : intersecting
+  const next = new Set([...dragSnapshot.value, ...intersecting])
   selected.value = next
   selectedSizes.value = new Map([...next].map(id => [id, images.value.find(img => img.id === id)?.size ?? 0]))
 }
@@ -259,7 +427,6 @@ const onGridPointerDown = (e: PointerEvent) => {
   dragStart.value = { x: e.clientX, y: e.clientY }
   dragCurrent.value = { x: e.clientX, y: e.clientY }
   dragPendingId.value = id
-  dragAdditive.value = e.shiftKey
   dragSnapshot.value = new Set(selected.value)
   isDragging.value = false
 
@@ -285,7 +452,7 @@ const toggleSelectAllLoaded = () => {
 
 const bulkDelete = async () => {
   const ids = [...selected.value]
-  await Promise.all(ids.map(id => client.deleteImage(id)))
+  await client.bulkDeleteImages(ids)
 
   images.value = images.value.filter(img => !selected.value.has(img.id))
 
@@ -341,6 +508,60 @@ const uploadFiles = async (files: File[]) => {
       :confirm-icon="Trash2Icon"
       :confirm-action="() => bulkDelete()" />
 
+    <FolderNameDialog
+      v-if="newFolderDialogOpen"
+      title="New folder"
+      confirm-text="Create"
+      @dismiss="newFolderDialogOpen = false"
+      :confirm-action="createFolder" />
+
+    <FolderNameDialog
+      v-if="renameFolderTarget"
+      title="Rename folder"
+      confirm-text="Rename"
+      :initial-value="renameFolderTarget.name"
+      @dismiss="renameFolderTarget = null"
+      :confirm-action="renameFolder" />
+
+    <ConfirmDialogue
+      v-if="deleteFolderTarget"
+      @dismiss="deleteFolderTarget = null"
+      title="Delete folder?"
+      :description="`This will permanently delete '${deleteFolderTarget.name}' and everything inside it.`"
+      confirm-text="Delete"
+      confirm-colour="danger"
+      :confirm-icon="Trash2Icon"
+      :confirm-action="() => deleteFolder()" />
+
+    <MoveToFolderDialog v-if="moveDialogOpen" @dismiss="moveDialogOpen = false" @moved="bulkMove" />
+
+    <div class="mb-3 flex flex-wrap items-center gap-1 text-sm">
+      <button
+        @click="openFolder(null)"
+        @dragover.prevent
+        @drop.prevent="onBreadcrumbDrop($event, null, 'My files')"
+        :class="[
+          'text-muted hover:text-foreground flex items-center gap-1 rounded-md px-1.5 py-0.5 font-medium hover:cursor-pointer',
+          currentFolderId === null && 'text-foreground'
+        ]">
+        <HomeIcon :size="14" />
+        My files
+      </button>
+      <template v-for="crumb in breadcrumb" :key="crumb.id">
+        <ChevronRightIcon :size="14" class="text-muted shrink-0" />
+        <button
+          @click="openFolder(crumb.id)"
+          @dragover.prevent
+          @drop.prevent="onBreadcrumbDrop($event, crumb.id, crumb.name)"
+          :class="[
+            'text-muted hover:text-foreground truncate rounded-md px-1.5 py-0.5 font-medium hover:cursor-pointer',
+            currentFolderId === crumb.id && 'text-foreground'
+          ]">
+          {{ crumb.name }}
+        </button>
+      </template>
+    </div>
+
     <div class="mb-4 flex flex-wrap items-center justify-end gap-2">
       <select
         v-model="sort"
@@ -349,7 +570,7 @@ const uploadFiles = async (files: File[]) => {
         <option v-for="opt in sortOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
       </select>
 
-      <div class="border-border bg-surface flex items-center gap-0.5 rounded-lg border p-0.5">
+      <div v-if="viewMode === 'grid'" class="border-border bg-surface flex items-center gap-0.5 rounded-lg border p-0.5">
         <button
           v-for="opt in gridSizeOptions"
           :key="opt.value"
@@ -363,7 +584,7 @@ const uploadFiles = async (files: File[]) => {
         </button>
       </div>
 
-      <div class="border-border bg-surface flex items-center gap-0.5 rounded-lg border p-0.5">
+      <div v-if="viewMode === 'grid'" class="border-border bg-surface flex items-center gap-0.5 rounded-lg border p-0.5">
         <button
           v-for="opt in fitModeOptions"
           :key="opt.value"
@@ -376,6 +597,28 @@ const uploadFiles = async (files: File[]) => {
           <component :is="opt.icon" :size="16" />
         </button>
       </div>
+
+      <div class="border-border bg-surface flex items-center gap-0.5 rounded-lg border p-0.5">
+        <button
+          v-for="opt in viewModeOptions"
+          :key="opt.value"
+          @click="setViewMode(opt.value)"
+          :title="opt.title"
+          :class="[
+            'flex items-center rounded-md p-1.5 transition hover:cursor-pointer',
+            viewMode === opt.value ? 'bg-primary text-white' : 'text-muted hover:bg-surface-2 hover:text-foreground'
+          ]">
+          <component :is="opt.icon" :size="16" />
+        </button>
+      </div>
+
+      <button
+        v-if="!selectMode"
+        @click="newFolderDialogOpen = true"
+        class="border-border bg-surface text-muted hover:bg-surface-2 hover:text-foreground flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition hover:cursor-pointer">
+        <FolderPlusIcon :size="16" />
+        New folder
+      </button>
 
       <button
         @click="toggleSelectMode"
@@ -410,19 +653,40 @@ const uploadFiles = async (files: File[]) => {
           </span>
         </div>
 
-        <Button variant="danger" :icon="Trash2Icon" :disabled="selected.size === 0" @click="bulkConfirmOpen = true">
-          Delete selected
-        </Button>
+        <div class="flex items-center gap-2">
+          <Button variant="secondary" :icon="MoveIcon" :disabled="selected.size === 0" @click="moveDialogOpen = true">
+            Move
+          </Button>
+          <Button variant="danger" :icon="Trash2Icon" :disabled="selected.size === 0" @click="bulkConfirmOpen = true">
+            Delete selected
+          </Button>
+        </div>
       </div>
     </Transition>
 
-    <Card :class="['grid gap-3', gridClasses[gridSize]]" @pointerdown="onGridPointerDown">
+    <Card v-if="viewMode === 'grid' && folders.length > 0" :class="['mb-3 grid gap-3', gridClasses[gridSize]]">
+      <FolderItem
+        v-for="folder in folders"
+        :key="folder.id"
+        :folder="folder"
+        mode="grid"
+        @open="openFolder(folder.id)"
+        @rename="renameFolderTarget = folder"
+        @delete="deleteFolderTarget = folder"
+        @drop-image="id => moveImageToFolder(id, folder.id, folder.name)" />
+    </Card>
+
+    <Card v-if="viewMode === 'grid'" :class="['grid gap-3', gridClasses[gridSize]]" @pointerdown="onGridPointerDown">
       <FileDrop v-if="!selectMode" :uploading="uploading" :progress="uploadProgress" @selected-files="uploadFiles" />
 
       <div
         v-for="image in images"
         :key="image.id"
         :data-image-id="image.id"
+        :draggable="!selectMode"
+        @dragstart="onImageDragStart($event, image.id)"
+        @dragend="onImageDragEnd"
+        :class="draggingImageId === image.id && 'opacity-40'"
         :ref="el => setTileRef(image.id, el as Element | null)">
         <ImageCard
           :image="image"
@@ -430,6 +694,8 @@ const uploadFiles = async (files: File[]) => {
           :selected="selected.has(image.id)"
           :fit="fitMode"
           :thumbnail-width="thumbnailWidth"
+          @select="selectSingleViaMenu"
+          @move="moveSingleViaMenu"
           @pop="
             id => {
               images.splice(
@@ -441,6 +707,56 @@ const uploadFiles = async (files: File[]) => {
           " />
       </div>
     </Card>
+
+    <template v-else>
+      <FileDrop
+        v-if="!selectMode"
+        compact
+        class="mb-3"
+        :uploading="uploading"
+        :progress="uploadProgress"
+        @selected-files="uploadFiles" />
+
+      <Card v-if="folders.length > 0" class="mb-3 !p-0">
+        <FolderItem
+          v-for="folder in folders"
+          :key="folder.id"
+          :folder="folder"
+          mode="list"
+          @open="openFolder(folder.id)"
+          @rename="renameFolderTarget = folder"
+          @delete="deleteFolderTarget = folder"
+          @drop-image="id => moveImageToFolder(id, folder.id, folder.name)" />
+      </Card>
+
+      <Card class="!p-0" @pointerdown="onGridPointerDown">
+        <div
+          v-for="image in images"
+          :key="image.id"
+          :data-image-id="image.id"
+          :draggable="!selectMode"
+          @dragstart="onImageDragStart($event, image.id)"
+          @dragend="onImageDragEnd"
+          :class="draggingImageId === image.id && 'opacity-40'"
+          :ref="el => setTileRef(image.id, el as Element | null)">
+          <ImageListRow
+            :image="image"
+            :selectable="selectMode"
+            :selected="selected.has(image.id)"
+            @select="selectSingleViaMenu"
+            @move="moveSingleViaMenu"
+            @pop="
+              id => {
+                images.splice(
+                  images.findIndex(img => img.id === id),
+                  1
+                )
+                bumpMediaVersion()
+              }
+            " />
+        </div>
+      </Card>
+    </template>
 
     <div ref="sentinel" class="flex h-10 items-center justify-center">
       <LucideLoader2 v-if="loadingMore" :size="20" class="text-muted animate-spin" />

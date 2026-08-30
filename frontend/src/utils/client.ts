@@ -15,6 +15,8 @@ import type {
   APIResponse,
   DashboardStats,
   DashboardTimeseries,
+  Folder,
+  FolderListing,
   Image,
   PaginatedResponse,
   Passkey,
@@ -109,12 +111,43 @@ export class Client {
     return this.request<string>("/api/reset-token", { method: "POST" })
   }
 
-  async getImages(page: number = 0, sort: string = "date_desc") {
-    return this.requestPaginated<Image[]>(`/api/get-images?page=${page}&sort=${sort}`)
+  async getImages(page: number = 0, sort: string = "date_desc", folderId: string | null = null) {
+    const query = new URLSearchParams({ page: String(page), sort })
+    if (folderId) query.set("folder_id", folderId)
+    return this.requestPaginated<Image[]>(`/api/get-images?${query.toString()}`)
   }
 
   async deleteImage(imageId: string): Promise<void> {
     return this.request<void>("/api/delete-image", { query: { id: imageId }, method: "POST" })
+  }
+
+  async bulkDeleteImages(ids: string[]): Promise<string[]> {
+    return this.request<string[]>("/api/bulk-delete-images", { method: "POST", body: { ids } })
+  }
+
+  async bulkMoveImages(ids: string[], folderId: string | null): Promise<string[]> {
+    return this.request<string[]>("/api/bulk-move-images", { method: "POST", body: { ids, folder_id: folderId } })
+  }
+
+  async getFolders(parentId: string | null = null): Promise<FolderListing> {
+    const query = parentId ? `?parent_id=${encodeURIComponent(parentId)}` : ""
+    return this.request<FolderListing>(`/api/folders${query}`)
+  }
+
+  async createFolder(name: string, parentId: string | null = null): Promise<Folder> {
+    return this.request<Folder>("/api/folders", { method: "POST", body: { name, parent_id: parentId } })
+  }
+
+  async renameFolder(id: string, name: string): Promise<Folder> {
+    return this.request<Folder>(`/api/folders/${id}/rename`, { method: "POST", body: { name } })
+  }
+
+  async moveFolder(id: string, parentId: string | null): Promise<Folder> {
+    return this.request<Folder>(`/api/folders/${id}/move`, { method: "POST", body: { parent_id: parentId } })
+  }
+
+  async deleteFolder(id: string): Promise<void> {
+    return this.request<void>(`/api/folders/${id}/delete`, { method: "POST" })
   }
 
   async adminStats(): Promise<AdminStats> {

@@ -60,6 +60,23 @@ export type AdminUserDetail = AdminUser & {
   }
 }
 
+export type Folder = {
+  id: string
+  name: string
+  parent_id: string | null
+  created_at: string
+}
+
+export type BreadcrumbEntry = {
+  id: string
+  name: string
+}
+
+export type FolderListing = {
+  folders: Folder[]
+  breadcrumb: BreadcrumbEntry[]
+}
+
 export type Image = {
   id: string
   date: string

@@ -334,6 +334,12 @@ func GetImages(w http.ResponseWriter, r *http.Request) error {
 		orderBy = imageSortColumns["date_desc"]
 	}
 
+	folderID := r.URL.Query().Get("folder_id")
+	var folderIDArg *string
+	if folderID != "" {
+		folderIDArg = &folderID
+	}
+
 	const pageSize = 24
 	offset := page * pageSize
 
@@ -346,14 +352,14 @@ func GetImages(w http.ResponseWriter, r *http.Request) error {
 					width, height, duration_ms, bitrate, codec, framerate, sample_rate, channels,
 					has_cover
 				FROM media
-				WHERE user_id = $1
+				WHERE user_id = $1 AND folder_id IS NOT DISTINCT FROM $4
 				ORDER BY %s, id DESC
 				OFFSET ($2)
 				LIMIT $3;
 			`,
 			orderBy,
 		),
-		userID, offset, pageSize+1,
+		userID, offset, pageSize+1, folderIDArg,
 	)
 	if err != nil {
 		return err
@@ -444,5 +450,142 @@ func DeleteImage(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 	utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusNotFound})
+	return nil
+}
+
+type bulkDeleteReceive struct {
+	IDs []string `json:"ids"`
+}
+
+func BulkDeleteImages(w http.ResponseWriter, r *http.Request) error {
+	userID := utils.GetUserID(r)
+
+	payload, err := utils.ReadJSONBody[*bulkDeleteReceive](w, r.Body, 1<<16)
+	if err != nil {
+		return err
+	}
+
+	if len(payload.IDs) == 0 {
+		utils.WriteJSONError(w, http.StatusBadRequest, "No ids provided.")
+		return nil
+	}
+
+	rows, err := utils.DB.Query(
+		r.Context(),
+		`
+			WITH removed AS (
+				DELETE FROM media
+				WHERE id = ANY($1) AND user_id = $2
+				RETURNING id, COALESCE(size, 0)::bigint * COALESCE(views, 0) AS bandwidth, has_cover
+			),
+			bumped AS (
+				UPDATE users
+				SET bandwidth = bandwidth + COALESCE((SELECT SUM(bandwidth) FROM removed), 0)
+				WHERE id = $2 AND EXISTS (SELECT 1 FROM removed)
+			)
+			SELECT id, has_cover FROM removed
+		`,
+		payload.IDs, userID,
+	)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	type removedMedia struct {
+		id       string
+		hasCover bool
+	}
+
+	removed := make([]removedMedia, 0, len(payload.IDs))
+	for rows.Next() {
+		var rm removedMedia
+		if err := rows.Scan(&rm.id, &rm.hasCover); err != nil {
+			return err
+		}
+		removed = append(removed, rm)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	deletedIDs := make([]string, 0, len(removed))
+	for _, rm := range removed {
+		deletedIDs = append(deletedIDs, rm.id)
+
+		if err := utils.DeleteObject(r.Context(), utils.MediaBucket, rm.id); err != nil {
+			log.Printf("Error deleting media object %q: %v\n", rm.id, err)
+		}
+		if rm.hasCover {
+			if err := utils.DeleteObject(r.Context(), utils.CoversBucket, rm.id); err != nil {
+				log.Printf("Error deleting cover object %q: %v\n", rm.id, err)
+			}
+		}
+	}
+
+	utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusOK, Data: deletedIDs})
+	return nil
+}
+
+type bulkMoveReceive struct {
+	IDs      []string `json:"ids"`
+	FolderID *string  `json:"folder_id"`
+}
+
+func BulkMoveImages(w http.ResponseWriter, r *http.Request) error {
+	userID := utils.GetUserID(r)
+
+	payload, err := utils.ReadJSONBody[*bulkMoveReceive](w, r.Body, 1<<16)
+	if err != nil {
+		return err
+	}
+
+	if len(payload.IDs) == 0 {
+		utils.WriteJSONError(w, http.StatusBadRequest, "No ids provided.")
+		return nil
+	}
+
+	if payload.FolderID != nil {
+		var exists bool
+		if err := utils.DB.QueryRow(
+			r.Context(),
+			`SELECT EXISTS (SELECT 1 FROM folders WHERE id = $1 AND user_id = $2)`,
+			*payload.FolderID, userID,
+		).Scan(&exists); err != nil {
+			return err
+		}
+		if !exists {
+			return utils.NewHTTPError(http.StatusNotFound, "Folder not found.")
+		}
+	}
+
+	rows, err := utils.DB.Query(
+		r.Context(),
+		`
+			UPDATE media
+			SET folder_id = $1
+			WHERE id = ANY($2) AND user_id = $3
+			RETURNING id
+		`,
+		payload.FolderID, payload.IDs, userID,
+	)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	movedIDs := make([]string, 0, len(payload.IDs))
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return err
+		}
+		movedIDs = append(movedIDs, id)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusOK, Data: movedIDs})
 	return nil
 }
