@@ -9,6 +9,7 @@ const {
   initialValue = "",
   placeholder = "Folder name",
   icon = FolderPlusIcon,
+  isFilename = false,
   confirmAction
 } = defineProps<{
   title: string
@@ -16,6 +17,7 @@ const {
   initialValue?: string
   placeholder?: string
   icon?: Component
+  isFilename?: boolean
   confirmAction: (name: string) => unknown
 }>()
 
@@ -27,8 +29,16 @@ const name = ref(initialValue)
 const inputRef = useTemplateRef<HTMLInputElement>("input")
 
 nextTick(() => {
-  inputRef.value?.focus()
-  inputRef.value?.select()
+  const input = inputRef.value
+  if (!input) return
+  input.focus()
+
+  const dotIndex = initialValue.lastIndexOf(".")
+  if (isFilename && dotIndex > 0) {
+    input.setSelectionRange(0, dotIndex)
+  } else {
+    input.select()
+  }
 })
 
 const submitting = ref(false)

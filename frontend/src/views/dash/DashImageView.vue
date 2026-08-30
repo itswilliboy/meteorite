@@ -652,6 +652,7 @@ const uploadFiles = async (files: File[]) => {
       confirm-text="Rename"
       placeholder="File name"
       :icon="PencilIcon"
+      is-filename
       :initial-value="renameImageTarget.filename ?? renameImageTarget.id"
       @dismiss="renameImageTarget = null"
       :confirm-action="renameImage" />
