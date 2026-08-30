@@ -99,24 +99,50 @@ const deleteFolder = async () => {
 
 const bulkMove = async (folderId: string | null) => {
   const ids = [...selected.value]
+  const folderIds = ids.filter(id => folders.value.some(f => f.id === id))
+  const imageIds = ids.filter(id => !folderIds.includes(id))
 
-  try {
-    await client.bulkMoveImages(ids, folderId)
-  } catch (e) {
-    push({ title: e instanceof HTTPException ? e.message : "Could not move items", colour: "danger", delay: 6000 })
-    return
+  let movedImageIds: string[] = []
+  let imagesFailed = false
+  if (imageIds.length > 0) {
+    try {
+      await client.bulkMoveImages(imageIds, folderId)
+      movedImageIds = imageIds
+    } catch (e) {
+      imagesFailed = true
+      push({ title: e instanceof HTTPException ? e.message : "Could not move selected files", colour: "danger", delay: 6000 })
+    }
+  }
+
+  let movedFolderIds: string[] = []
+  if (folderIds.length > 0) {
+    const results = await Promise.allSettled(folderIds.map(id => client.moveFolder(id, folderId)))
+    movedFolderIds = folderIds.filter((_, i) => results[i].status === "fulfilled")
+    const failedCount = folderIds.length - movedFolderIds.length
+    if (failedCount > 0) {
+      push({ title: `Could not move ${failedCount} ${failedCount === 1 ? "folder" : "folders"}`, colour: "danger", delay: 6000 })
+    }
   }
 
   if (folderId !== currentFolderId.value) {
-    images.value = images.value.filter(img => !selected.value.has(img.id))
+    images.value = images.value.filter(img => !movedImageIds.includes(img.id))
+    folders.value = folders.value.filter(f => !movedFolderIds.includes(f.id))
   }
 
-  push({ title: `Moved ${ids.length} ${ids.length === 1 ? "item" : "items"}`, delay: 4000, colour: "info" })
-  selected.value.clear()
-  selectedSizes.value.clear()
-  selectMode.value = false
-  moveDialogOpen.value = false
-  bumpMediaVersion()
+  const movedCount = movedImageIds.length + movedFolderIds.length
+  if (movedCount > 0) {
+    push({ title: `Moved ${movedCount} ${movedCount === 1 ? "item" : "items"}`, delay: 4000, colour: "info" })
+    bumpMediaVersion()
+  }
+
+  for (const id of [...movedImageIds, ...movedFolderIds]) {
+    selected.value.delete(id)
+    selectedSizes.value.delete(id)
+  }
+  if (!imagesFailed && movedFolderIds.length === folderIds.length) {
+    selectMode.value = false
+    moveDialogOpen.value = false
+  }
 }
 
 const moveImageToFolder = async (id: string, folderId: string | null, folderName: string) => {
@@ -136,12 +162,12 @@ const moveImageToFolder = async (id: string, folderId: string | null, folderName
   bumpMediaVersion()
 }
 
-const moveSingleViaMenu = (id: string) => {
-  const image = images.value.find(img => img.id === id)
-  if (!image) return
+const moveItemViaMenu = (id: string) => {
+  const item = allItems.value.find(i => i.id === id)
+  if (!item) return
 
   selected.value = new Set([id])
-  selectedSizes.value = new Map([[id, image.size]])
+  selectedSizes.value = new Map([[id, item.size]])
   moveDialogOpen.value = true
 }
 
@@ -158,8 +184,30 @@ const onImageDragEnd = () => {
 }
 
 const onBreadcrumbDrop = (e: DragEvent, folderId: string | null, folderName: string) => {
+  breadcrumbDragOverDepth.value = {}
   const id = e.dataTransfer?.getData("text/plain")
   if (id) moveImageToFolder(id, folderId, folderName)
+}
+
+const ROOT_BREADCRUMB_KEY = "__root__"
+const breadcrumbDragOverDepth = ref<Record<string, number>>({})
+
+const isBreadcrumbDragOver = (key: string) => (breadcrumbDragOverDepth.value[key] ?? 0) > 0
+
+const onBreadcrumbDragOver = (e: DragEvent) => {
+  if (!e.dataTransfer?.types.includes("text/plain")) return
+  e.preventDefault()
+  e.dataTransfer.dropEffect = "move"
+}
+
+const onBreadcrumbDragEnter = (e: DragEvent, key: string) => {
+  if (!e.dataTransfer?.types.includes("text/plain")) return
+  breadcrumbDragOverDepth.value = { ...breadcrumbDragOverDepth.value, [key]: (breadcrumbDragOverDepth.value[key] ?? 0) + 1 }
+}
+
+const onBreadcrumbDragLeave = (key: string) => {
+  const depth = breadcrumbDragOverDepth.value[key] ?? 0
+  if (depth > 0) breadcrumbDragOverDepth.value = { ...breadcrumbDragOverDepth.value, [key]: depth - 1 }
 }
 
 const images = ref<Image[]>([])
@@ -175,9 +223,25 @@ const selected = ref<Set<string>>(new Set())
 const selectedSizes = ref<Map<string, number>>(new Map())
 const bulkConfirmOpen = ref(false)
 
-const allSelectedLoaded = computed(() => images.value.length > 0 && images.value.every(img => selected.value.has(img.id)))
+const allItems = computed(() => [
+  ...folders.value.map(f => ({ id: f.id, size: 0 })),
+  ...images.value.map(img => ({ id: img.id, size: img.size }))
+])
+const selectedFolderIds = computed(() => [...selected.value].filter(id => folders.value.some(f => f.id === id)))
+
+const allSelectedLoaded = computed(() => allItems.value.length > 0 && allItems.value.every(item => selected.value.has(item.id)))
 
 const selectedSize = computed(() => [...selectedSizes.value.values()].reduce((total, size) => total + size, 0))
+
+const selectedSizeLabel = computed(() => {
+  const folderCount = selectedFolderIds.value.length
+  const fileCount = selected.value.size - folderCount
+
+  const parts: string[] = []
+  if (fileCount > 0) parts.push(`${fileCount} ${fileCount === 1 ? "file" : "files"} (${formatBytes(selectedSize.value)})`)
+  if (folderCount > 0) parts.push(`${folderCount} ${folderCount === 1 ? "folder" : "folders"}`)
+  return parts.join(" + ")
+})
 
 const sortOptions = [
   { value: "date_desc", label: "Newest first" },
@@ -309,8 +373,8 @@ const toggleSelectMode = () => {
 const applySelection = (id: string, select: boolean) => {
   if (select) {
     selected.value.add(id)
-    const image = images.value.find(img => img.id === id)
-    if (image) selectedSizes.value.set(id, image.size)
+    const item = allItems.value.find(i => i.id === id)
+    if (item) selectedSizes.value.set(id, item.size)
   } else {
     selected.value.delete(id)
     selectedSizes.value.delete(id)
@@ -320,20 +384,20 @@ const applySelection = (id: string, select: boolean) => {
 const lastSelectedIndex = ref<number | null>(null)
 
 const toggleSingle = (id: string) => {
-  const idx = images.value.findIndex(img => img.id === id)
+  const idx = allItems.value.findIndex(i => i.id === id)
   applySelection(id, !selected.value.has(id))
   if (idx !== -1) lastSelectedIndex.value = idx
 }
 
 const selectRange = (fromIdx: number, toIdx: number) => {
   const [start, end] = [fromIdx, toIdx].sort((a, b) => a - b)
-  for (let i = start; i <= end; i++) applySelection(images.value[i].id, true)
+  for (let i = start; i <= end; i++) applySelection(allItems.value[i].id, true)
 }
 
-const selectSingleViaMenu = (id: string) => {
+const selectItemViaMenu = (id: string) => {
   selectMode.value = true
   applySelection(id, true)
-  const idx = images.value.findIndex(img => img.id === id)
+  const idx = allItems.value.findIndex(i => i.id === id)
   if (idx !== -1) lastSelectedIndex.value = idx
 }
 
@@ -375,7 +439,7 @@ const updateMarqueeSelection = () => {
 
   const next = new Set([...dragSnapshot.value, ...intersecting])
   selected.value = next
-  selectedSizes.value = new Map([...next].map(id => [id, images.value.find(img => img.id === id)?.size ?? 0]))
+  selectedSizes.value = new Map([...next].map(id => [id, allItems.value.find(i => i.id === id)?.size ?? 0]))
 }
 
 const onGridPointerMove = (e: PointerEvent) => {
@@ -412,10 +476,10 @@ const onGridPointerUp = () => {
 const onGridPointerDown = (e: PointerEvent) => {
   if (!selectMode.value || e.button !== 0) return
 
-  const id = (e.target as HTMLElement).closest<HTMLElement>("[data-image-id]")?.dataset.imageId ?? null
+  const id = (e.target as HTMLElement).closest<HTMLElement>("[data-item-id]")?.dataset.itemId ?? null
 
   if (e.shiftKey && id && lastSelectedIndex.value !== null) {
-    const idx = images.value.findIndex(img => img.id === id)
+    const idx = allItems.value.findIndex(i => i.id === id)
     if (idx !== -1) {
       selectRange(lastSelectedIndex.value, idx)
       lastSelectedIndex.value = idx
@@ -438,29 +502,57 @@ onBeforeUnmount(resetDragState)
 
 const toggleSelectAllLoaded = () => {
   if (allSelectedLoaded.value) {
-    images.value.forEach(img => {
-      selected.value.delete(img.id)
-      selectedSizes.value.delete(img.id)
+    allItems.value.forEach(item => {
+      selected.value.delete(item.id)
+      selectedSizes.value.delete(item.id)
     })
   } else {
-    images.value.forEach(img => {
-      selected.value.add(img.id)
-      selectedSizes.value.set(img.id, img.size)
+    allItems.value.forEach(item => {
+      selected.value.add(item.id)
+      selectedSizes.value.set(item.id, item.size)
     })
   }
 }
 
 const bulkDelete = async () => {
   const ids = [...selected.value]
-  await client.bulkDeleteImages(ids)
+  const folderIds = ids.filter(id => folders.value.some(f => f.id === id))
+  const imageIds = ids.filter(id => !folderIds.includes(id))
 
-  images.value = images.value.filter(img => !selected.value.has(img.id))
+  let deletedImageIds: string[] = []
+  if (imageIds.length > 0) {
+    try {
+      await client.bulkDeleteImages(imageIds)
+      deletedImageIds = imageIds
+    } catch (e) {
+      push({ title: e instanceof HTTPException ? e.message : "Could not delete selected files", colour: "danger", delay: 6000 })
+    }
+  }
 
-  push({ title: `Deleted ${ids.length} ${ids.length === 1 ? "item" : "items"}`, delay: 4000, colour: "info" })
-  selected.value.clear()
-  selectedSizes.value.clear()
-  selectMode.value = false
-  bumpMediaVersion()
+  let deletedFolderIds: string[] = []
+  if (folderIds.length > 0) {
+    const results = await Promise.allSettled(folderIds.map(id => client.deleteFolder(id)))
+    deletedFolderIds = folderIds.filter((_, i) => results[i].status === "fulfilled")
+    const failedCount = folderIds.length - deletedFolderIds.length
+    if (failedCount > 0) {
+      push({ title: `Could not delete ${failedCount} ${failedCount === 1 ? "folder" : "folders"}`, colour: "danger", delay: 6000 })
+    }
+  }
+
+  images.value = images.value.filter(img => !deletedImageIds.includes(img.id))
+  folders.value = folders.value.filter(f => !deletedFolderIds.includes(f.id))
+
+  const deletedCount = deletedImageIds.length + deletedFolderIds.length
+  if (deletedCount > 0) {
+    push({ title: `Deleted ${deletedCount} ${deletedCount === 1 ? "item" : "items"}`, delay: 4000, colour: "info" })
+    bumpMediaVersion()
+  }
+
+  for (const id of [...deletedImageIds, ...deletedFolderIds]) {
+    selected.value.delete(id)
+    selectedSizes.value.delete(id)
+  }
+  if (deletedCount === ids.length) selectMode.value = false
 }
 
 const uploadFiles = async (files: File[]) => {
@@ -502,7 +594,7 @@ const uploadFiles = async (files: File[]) => {
       v-if="bulkConfirmOpen"
       @dismiss="bulkConfirmOpen = false"
       title="Delete selected?"
-      :description="`This will permanently delete ${selected.size} ${selected.size === 1 ? 'item' : 'items'} (${formatBytes(selectedSize)}).`"
+      :description="`This will permanently delete ${selectedSizeLabel}.`"
       confirm-text="Delete"
       confirm-colour="danger"
       :confirm-icon="Trash2Icon"
@@ -533,15 +625,24 @@ const uploadFiles = async (files: File[]) => {
       :confirm-icon="Trash2Icon"
       :confirm-action="() => deleteFolder()" />
 
-    <MoveToFolderDialog v-if="moveDialogOpen" @dismiss="moveDialogOpen = false" @moved="bulkMove" />
+    <MoveToFolderDialog
+      v-if="moveDialogOpen"
+      :exclude-folder-ids="selectedFolderIds"
+      @dismiss="moveDialogOpen = false"
+      @moved="bulkMove" />
 
     <div class="mb-3 flex flex-wrap items-center gap-1 text-sm">
       <button
         @click="openFolder(null)"
-        @dragover.prevent
+        @dragover="onBreadcrumbDragOver"
+        @dragenter="onBreadcrumbDragEnter($event, ROOT_BREADCRUMB_KEY)"
+        @dragleave="onBreadcrumbDragLeave(ROOT_BREADCRUMB_KEY)"
         @drop.prevent="onBreadcrumbDrop($event, null, 'My files')"
         :class="[
-          'text-muted hover:text-foreground flex items-center gap-1 rounded-md px-1.5 py-0.5 font-medium hover:cursor-pointer',
+          'flex items-center gap-1 rounded-md px-1.5 py-0.5 font-medium transition hover:cursor-pointer',
+          isBreadcrumbDragOver(ROOT_BREADCRUMB_KEY)
+            ? 'ring-primary bg-primary/10 text-foreground ring-2 ring-inset'
+            : 'text-muted hover:text-foreground',
           currentFolderId === null && 'text-foreground'
         ]">
         <HomeIcon :size="14" />
@@ -551,10 +652,15 @@ const uploadFiles = async (files: File[]) => {
         <ChevronRightIcon :size="14" class="text-muted shrink-0" />
         <button
           @click="openFolder(crumb.id)"
-          @dragover.prevent
+          @dragover="onBreadcrumbDragOver"
+          @dragenter="onBreadcrumbDragEnter($event, crumb.id)"
+          @dragleave="onBreadcrumbDragLeave(crumb.id)"
           @drop.prevent="onBreadcrumbDrop($event, crumb.id, crumb.name)"
           :class="[
-            'text-muted hover:text-foreground truncate rounded-md px-1.5 py-0.5 font-medium hover:cursor-pointer',
+            'truncate rounded-md px-1.5 py-0.5 font-medium transition hover:cursor-pointer',
+            isBreadcrumbDragOver(crumb.id)
+              ? 'ring-primary bg-primary/10 text-foreground ring-2 ring-inset'
+              : 'text-muted hover:text-foreground',
             currentFolderId === crumb.id && 'text-foreground'
           ]">
           {{ crumb.name }}
@@ -649,7 +755,7 @@ const uploadFiles = async (files: File[]) => {
           </label>
           <span class="text-muted text-sm">
             {{ selected.size }} selected
-            <template v-if="selected.size > 0">&middot; {{ formatBytes(selectedSize) }}</template>
+            <template v-if="selected.size > 0">&middot; {{ selectedSizeLabel }}</template>
           </span>
         </div>
 
@@ -664,87 +770,49 @@ const uploadFiles = async (files: File[]) => {
       </div>
     </Transition>
 
-    <Card v-if="viewMode === 'grid' && folders.length > 0" :class="['mb-3 grid gap-3', gridClasses[gridSize]]">
-      <FolderItem
-        v-for="folder in folders"
-        :key="folder.id"
-        :folder="folder"
-        mode="grid"
-        @open="openFolder(folder.id)"
-        @rename="renameFolderTarget = folder"
-        @delete="deleteFolderTarget = folder"
-        @drop-image="id => moveImageToFolder(id, folder.id, folder.name)" />
-    </Card>
-
-    <Card v-if="viewMode === 'grid'" :class="['grid gap-3', gridClasses[gridSize]]" @pointerdown="onGridPointerDown">
-      <FileDrop v-if="!selectMode" :uploading="uploading" :progress="uploadProgress" @selected-files="uploadFiles" />
-
-      <div
-        v-for="image in images"
-        :key="image.id"
-        :data-image-id="image.id"
-        :draggable="!selectMode"
-        @dragstart="onImageDragStart($event, image.id)"
-        @dragend="onImageDragEnd"
-        :class="draggingImageId === image.id && 'opacity-40'"
-        :ref="el => setTileRef(image.id, el as Element | null)">
-        <ImageCard
-          :image="image"
-          :selectable="selectMode"
-          :selected="selected.has(image.id)"
-          :fit="fitMode"
-          :thumbnail-width="thumbnailWidth"
-          @select="selectSingleViaMenu"
-          @move="moveSingleViaMenu"
-          @pop="
-            id => {
-              images.splice(
-                images.findIndex(img => img.id === id),
-                1
-              )
-              bumpMediaVersion()
-            }
-          " />
-      </div>
-    </Card>
-
-    <template v-else>
-      <FileDrop
-        v-if="!selectMode"
-        compact
-        class="mb-3"
-        :uploading="uploading"
-        :progress="uploadProgress"
-        @selected-files="uploadFiles" />
-
-      <Card v-if="folders.length > 0" class="mb-3 !p-0">
-        <FolderItem
+    <div class="min-h-[16rem]" @pointerdown="onGridPointerDown">
+      <Card
+        v-if="viewMode === 'grid' && folders.length > 0"
+        :class="['mb-3 grid gap-3', gridClasses[gridSize]]">
+        <div
           v-for="folder in folders"
           :key="folder.id"
-          :folder="folder"
-          mode="list"
-          @open="openFolder(folder.id)"
-          @rename="renameFolderTarget = folder"
-          @delete="deleteFolderTarget = folder"
-          @drop-image="id => moveImageToFolder(id, folder.id, folder.name)" />
+          :data-item-id="folder.id"
+          :ref="el => setTileRef(folder.id, el as Element | null)">
+          <FolderItem
+            :folder="folder"
+            mode="grid"
+            :selectable="selectMode"
+            :selected="selected.has(folder.id)"
+            @open="openFolder(folder.id)"
+            @rename="renameFolderTarget = folder"
+            @delete="deleteFolderTarget = folder"
+            @select="selectItemViaMenu"
+            @move="moveItemViaMenu"
+            @drop-image="id => moveImageToFolder(id, folder.id, folder.name)" />
+        </div>
       </Card>
 
-      <Card class="!p-0" @pointerdown="onGridPointerDown">
+      <Card v-if="viewMode === 'grid'" :class="['grid gap-3', gridClasses[gridSize]]">
+        <FileDrop v-if="!selectMode" :uploading="uploading" :progress="uploadProgress" @selected-files="uploadFiles" />
+
         <div
           v-for="image in images"
           :key="image.id"
-          :data-image-id="image.id"
+          :data-item-id="image.id"
           :draggable="!selectMode"
           @dragstart="onImageDragStart($event, image.id)"
           @dragend="onImageDragEnd"
           :class="draggingImageId === image.id && 'opacity-40'"
           :ref="el => setTileRef(image.id, el as Element | null)">
-          <ImageListRow
+          <ImageCard
             :image="image"
             :selectable="selectMode"
             :selected="selected.has(image.id)"
-            @select="selectSingleViaMenu"
-            @move="moveSingleViaMenu"
+            :fit="fitMode"
+            :thumbnail-width="thumbnailWidth"
+            @select="selectItemViaMenu"
+            @move="moveItemViaMenu"
             @pop="
               id => {
                 images.splice(
@@ -756,7 +824,65 @@ const uploadFiles = async (files: File[]) => {
             " />
         </div>
       </Card>
-    </template>
+
+      <template v-else>
+        <FileDrop
+          v-if="!selectMode"
+          compact
+          class="mb-3"
+          :uploading="uploading"
+          :progress="uploadProgress"
+          @selected-files="uploadFiles" />
+
+        <Card v-if="folders.length > 0" class="mb-3 overflow-hidden !p-0">
+          <div
+            v-for="folder in folders"
+            :key="folder.id"
+            :data-item-id="folder.id"
+            :ref="el => setTileRef(folder.id, el as Element | null)">
+            <FolderItem
+              :folder="folder"
+              mode="list"
+              :selectable="selectMode"
+              :selected="selected.has(folder.id)"
+              @open="openFolder(folder.id)"
+              @rename="renameFolderTarget = folder"
+              @delete="deleteFolderTarget = folder"
+              @select="selectItemViaMenu"
+              @move="moveItemViaMenu"
+              @drop-image="id => moveImageToFolder(id, folder.id, folder.name)" />
+          </div>
+        </Card>
+
+        <Card class="overflow-hidden !p-0">
+          <div
+            v-for="image in images"
+            :key="image.id"
+            :data-item-id="image.id"
+            :draggable="!selectMode"
+            @dragstart="onImageDragStart($event, image.id)"
+            @dragend="onImageDragEnd"
+            :class="draggingImageId === image.id && 'opacity-40'"
+            :ref="el => setTileRef(image.id, el as Element | null)">
+            <ImageListRow
+              :image="image"
+              :selectable="selectMode"
+              :selected="selected.has(image.id)"
+              @select="selectItemViaMenu"
+              @move="moveItemViaMenu"
+              @pop="
+                id => {
+                  images.splice(
+                    images.findIndex(img => img.id === id),
+                    1
+                  )
+                  bumpMediaVersion()
+                }
+              " />
+          </div>
+        </Card>
+      </template>
+    </div>
 
     <div ref="sentinel" class="flex h-10 items-center justify-center">
       <LucideLoader2 v-if="loadingMore" :size="20" class="text-muted animate-spin" />

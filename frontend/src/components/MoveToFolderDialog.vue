@@ -5,8 +5,8 @@ import type { BreadcrumbEntry, Folder } from "@/utils/type"
 import { ChevronRightIcon, FolderIcon, HomeIcon, MoveIcon, XIcon } from "lucide-vue-next"
 import { onMounted, ref } from "vue"
 
-const { excludeFolderId } = defineProps<{
-  excludeFolderId?: string
+const { excludeFolderIds = [] } = defineProps<{
+  excludeFolderIds?: string[]
 }>()
 
 const emit = defineEmits<{
@@ -25,7 +25,7 @@ const load = async (folderId: string | null) => {
   loading.value = true
   try {
     const resp = await client.getFolders(folderId)
-    folders.value = resp.folders.filter(f => f.id !== excludeFolderId)
+    folders.value = resp.folders.filter(f => !excludeFolderIds.includes(f.id))
     breadcrumb.value = resp.breadcrumb
     currentFolderId.value = folderId
   } finally {
