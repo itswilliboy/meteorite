@@ -60,33 +60,3 @@ defineEmits<{
     </div>
   </Teleport>
 </template>
-
-<style scoped>
-.backdrop-enter-active,
-.backdrop-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.backdrop-enter-from,
-.backdrop-leave-to {
-  opacity: 0;
-}
-
-.panel-enter-active {
-  transition:
-    opacity 0.22s ease-out,
-    transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.panel-leave-active {
-  transition:
-    opacity 0.15s ease-in,
-    transform 0.15s ease-in;
-}
-
-.panel-enter-from,
-.panel-leave-to {
-  opacity: 0;
-  transform: scale(0.96) translateY(8px);
-}
-</style>
