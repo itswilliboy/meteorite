@@ -12,14 +12,20 @@ const {
   preview = true,
   thumbnail = false,
   fit = "cover",
-  thumbnailWidth = 320
+  thumbnailWidth = 320,
+  compact = false
 } = defineProps<{
   image: Image
   preview?: boolean
   thumbnail?: boolean
   fit?: "cover" | "contain"
   thumbnailWidth?: number
+  compact?: boolean
 }>()
+
+const previewIconSize = compact ? 18 : 56
+const playButtonSizeClass = compact ? "size-5" : "size-10"
+const playIconSize = compact ? 11 : 18
 
 const { isImage, isVideo, isAudio, isText, isOther } = useMediaType(image.mimetype)
 const { setActive, clearActive } = useActiveMedia()
@@ -258,7 +264,7 @@ watch(isHovered, after => {
     <!-- Text files -->
     <div v-else-if="isText" class="relative flex size-full items-center justify-center overflow-hidden">
       <div v-if="preview" class="from-primary/15 to-primary/5 grid size-full place-items-center bg-linear-to-br">
-        <FileText class="text-primary/30" :size="56" :stroke-width="1.5" />
+        <FileText class="text-primary/30" :size="previewIconSize" :stroke-width="1.5" />
       </div>
       <div v-else class="bg-surface-2 flex size-full flex-col overflow-hidden rounded-xl">
         <div v-if="textLoading" class="text-muted grid size-full place-items-center text-sm">Loading preview...</div>
@@ -276,7 +282,7 @@ watch(isHovered, after => {
     <!-- Anything else without a preview -->
     <div v-else-if="isOther" class="relative flex size-full items-center justify-center overflow-hidden">
       <div v-if="preview" class="from-primary/15 to-primary/5 grid size-full place-items-center bg-linear-to-br">
-        <LucideFile class="text-primary/30" :size="56" :stroke-width="1.5" />
+        <LucideFile class="text-primary/30" :size="previewIconSize" :stroke-width="1.5" />
       </div>
       <div v-else class="text-muted flex size-full flex-col items-center justify-center gap-3 text-sm">
         <LucideFile :size="56" :stroke-width="1.2" class="text-muted/40" />
@@ -294,14 +300,18 @@ watch(isHovered, after => {
           :src="coverUrl"
           :loading="thumbnail ? 'lazy' : undefined"
           class="pointer-events-none absolute inset-0 size-full object-cover brightness-75" />
-        <LucideMusic v-else class="text-primary/25 pointer-events-none absolute" :size="56" :stroke-width="1.5" />
+        <LucideMusic v-else class="text-primary/25 pointer-events-none absolute" :size="previewIconSize" :stroke-width="1.5" />
 
         <button
+          v-if="!compact"
           @click.stop.prevent="togglePlay"
           :title="isPlaying ? 'Pause' : 'Play'"
-          class="bg-primary/90 relative z-10 grid size-10 place-items-center rounded-full text-white shadow-md transition hover:scale-105 hover:cursor-pointer">
-          <LucidePause v-if="isPlaying" :size="18" />
-          <LucidePlay v-else :size="18" class="ml-0.5" />
+          :class="[
+            'bg-primary/90 relative z-10 grid place-items-center rounded-full text-white shadow-md transition hover:scale-105 hover:cursor-pointer',
+            playButtonSizeClass
+          ]">
+          <LucidePause v-if="isPlaying" :size="playIconSize" />
+          <LucidePlay v-else :size="playIconSize" class="ml-0.5" />
         </button>
 
         <div class="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-black/10">
