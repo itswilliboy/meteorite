@@ -2,13 +2,13 @@
 import type { Image } from "@/utils/type"
 import { formatDistance } from "date-fns"
 import { formatBytes } from "@/utils/format"
-import ImageButtons from "./ImageButtons.vue"
+import ItemMenu from "./ItemMenu.vue"
 import ImageCardFull from "./ImageCardFull.vue"
 import useClient from "@/composables/useClient"
-import { ref } from "vue"
+import { ref, useTemplateRef } from "vue"
 import useToaster from "@/composables/useToaster"
 import ImageOrVideo from "./ImageOrVideo.vue"
-import { CheckIcon, Trash2Icon } from "lucide-vue-next"
+import { CheckIcon, MoreVerticalIcon, Trash2Icon } from "lucide-vue-next"
 import ConfirmDialogue from "./ConfirmDialogue.vue"
 
 const {
@@ -33,6 +33,8 @@ const confirmOpen = ref<boolean>(false)
 
 const emit = defineEmits<{
   pop: [id: string]
+  select: [id: string]
+  move: [id: string]
 }>()
 
 const deleteImage = () => {
@@ -44,10 +46,23 @@ const deleteImage = () => {
 const onTileClick = () => {
   if (!selectable) imageOpen.value = true
 }
+
+const menuRef = useTemplateRef<InstanceType<typeof ItemMenu>>("menuRef")
+
+const onMenuButtonClick = (e: MouseEvent) => {
+  menuRef.value?.openAtElement(e.currentTarget as HTMLElement)
+}
+
+const onContextMenu = (e: MouseEvent) => {
+  if (selectable) return
+  e.preventDefault()
+  menuRef.value?.openAt(e.clientX, e.clientY)
+}
 </script>
 
 <template>
   <div
+    @contextmenu="onContextMenu"
     :class="[
       'bg-surface-2 group relative aspect-square w-full overflow-hidden rounded-xl shadow-sm transition',
       selected && 'ring-primary ring-3 ring-offset-2'
@@ -62,11 +77,18 @@ const onTileClick = () => {
       confirm-colour="danger"
       :confirm-icon="Trash2Icon"
       :confirm-action="() => deleteImage()" />
-    <ImageButtons
-      v-if="!selectable"
+    <ItemMenu
+      ref="menuRef"
       :image="image"
-      @delete="confirmOpen = true"
-      class="pointer-events-none absolute top-2 right-2 z-10 opacity-0 transition-opacity duration-200 group-hover:pointer-events-auto group-hover:opacity-100" />
+      @select="$emit('select', image.id)"
+      @move="$emit('move', image.id)"
+      @delete="confirmOpen = true" />
+    <button
+      v-if="!selectable"
+      @click.stop="onMenuButtonClick"
+      class="absolute top-2 right-2 z-10 grid size-7 place-items-center rounded-full bg-black/40 text-white opacity-0 backdrop-blur-sm transition-opacity duration-200 hover:cursor-pointer hover:bg-black/60 group-hover:opacity-100">
+      <MoreVerticalIcon :size="16" />
+    </button>
     <div
       v-if="selectable"
       :class="[
