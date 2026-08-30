@@ -11,6 +11,8 @@ import {
   FileIcon,
   DownloadIcon,
   LinkIcon,
+  MoveIcon,
+  PencilIcon,
   Trash2Icon,
   XIcon
 } from "lucide-vue-next"
@@ -82,6 +84,8 @@ useKeydown(e => {
 const emit = defineEmits<{
   dismiss: []
   pop: [id: string]
+  rename: [id: string]
+  move: [id: string]
 }>()
 </script>
 
@@ -147,10 +151,18 @@ const emit = defineEmits<{
               </div>
             </dl>
 
-            <div class="mt-5 grid w-full shrink-0 grid-cols-3 gap-2">
+            <div class="mt-5 grid w-full shrink-0 grid-cols-2 gap-2">
               <Button :icon="LinkIcon" @click="copyToClipboard">Copy</Button>
               <Button variant="secondary" :icon="DownloadIcon" @click="downloadFile">Download</Button>
-              <Button variant="danger" :icon="Trash2Icon" @click="() => (confirmOpen = true)">Delete</Button>
+              <Button variant="secondary" :icon="PencilIcon" @click="$emit('rename', image.id)">Rename</Button>
+              <Button variant="secondary" :icon="MoveIcon" @click="$emit('move', image.id)">Move</Button>
+              <Button
+                variant="danger"
+                :icon="Trash2Icon"
+                class="col-span-2"
+                @click="() => (confirmOpen = true)">
+                Delete
+              </Button>
             </div>
           </div>
         </div>

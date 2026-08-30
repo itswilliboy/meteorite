@@ -66,7 +66,13 @@ const onContextMenu = (e: MouseEvent) => {
       selectable && 'select-none',
       selected && 'bg-primary/10'
     ]">
-    <ImageCardFull v-if="imageOpen" :image="image" @dismiss="imageOpen = false" @pop="$emit('pop', image.id)" />
+    <ImageCardFull
+      v-if="imageOpen"
+      :image="image"
+      @dismiss="imageOpen = false"
+      @pop="$emit('pop', image.id)"
+      @rename="$emit('rename', image.id)"
+      @move="$emit('move', image.id)" />
     <ConfirmDialogue
       v-if="confirmOpen"
       @dismiss="confirmOpen = false"

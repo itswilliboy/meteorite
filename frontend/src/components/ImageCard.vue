@@ -68,7 +68,13 @@ const onContextMenu = (e: MouseEvent) => {
       'bg-surface-2 group relative aspect-square w-full overflow-hidden rounded-xl shadow-sm transition',
       selected && 'ring-primary ring-3 ring-offset-2'
     ]">
-    <ImageCardFull v-if="imageOpen" :image="image" @dismiss="imageOpen = false" @pop="$emit('pop', image.id)" />
+    <ImageCardFull
+      v-if="imageOpen"
+      :image="image"
+      @dismiss="imageOpen = false"
+      @pop="$emit('pop', image.id)"
+      @rename="$emit('rename', image.id)"
+      @move="$emit('move', image.id)" />
     <ConfirmDialogue
       v-if="confirmOpen"
       @dismiss="confirmOpen = false"
