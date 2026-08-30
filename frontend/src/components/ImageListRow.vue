@@ -97,7 +97,7 @@ const onContextMenu = (e: MouseEvent) => {
         target="_blank"
         :title="image.filename ?? image.id"
         :class="[
-          'text-foreground block truncate text-sm font-medium',
+          'text-foreground inline-block max-w-full truncate align-top text-sm font-medium',
           selectable ? 'cursor-pointer' : 'hover:underline'
         ]"
         @click.stop>
