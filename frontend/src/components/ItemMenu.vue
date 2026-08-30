@@ -6,6 +6,7 @@ import {
   CopyIcon,
   DownloadIcon,
   MoveIcon,
+  PencilIcon,
   SquareArrowOutUpRightIcon,
   Trash2Icon
 } from "lucide-vue-next"
@@ -18,6 +19,7 @@ const { image } = defineProps<{
 const emit = defineEmits<{
   select: []
   move: []
+  rename: []
   delete: []
 }>()
 
@@ -27,7 +29,7 @@ const open = ref(false)
 const rawPosition = ref({ x: 0, y: 0 })
 
 const MENU_WIDTH = 192
-const MENU_HEIGHT = 220
+const MENU_HEIGHT = 256
 
 const position = computed(() => ({
   x: Math.min(rawPosition.value.x, window.innerWidth - MENU_WIDTH - 8),
@@ -77,21 +79,35 @@ const downloadFile = () => {
         target="_blank"
         @click="close"
         class="hover:bg-surface-2 flex w-full items-center gap-2 px-3 py-2 text-left hover:cursor-pointer">
-        <SquareArrowOutUpRightIcon :size="14" /> Open
+        <SquareArrowOutUpRightIcon :size="14" />
+        Open
       </a>
       <button
         @click="copyToClipboard"
         class="hover:bg-surface-2 flex w-full items-center gap-2 px-3 py-2 text-left hover:cursor-pointer">
-        <CopyIcon :size="14" /> Copy link
+        <CopyIcon :size="14" />
+        Copy link
       </button>
       <button
         @click="downloadFile"
         class="hover:bg-surface-2 flex w-full items-center gap-2 px-3 py-2 text-left hover:cursor-pointer">
-        <DownloadIcon :size="14" /> Download
+        <DownloadIcon :size="14" />
+        Download
       </button>
 
       <div class="border-border my-1 border-t" />
 
+      <button
+        @click="
+          () => {
+            emit('rename')
+            close()
+          }
+        "
+        class="hover:bg-surface-2 flex w-full items-center gap-2 px-3 py-2 text-left hover:cursor-pointer">
+        <PencilIcon :size="14" />
+        Rename
+      </button>
       <button
         @click="
           () => {
@@ -100,7 +116,8 @@ const downloadFile = () => {
           }
         "
         class="hover:bg-surface-2 flex w-full items-center gap-2 px-3 py-2 text-left hover:cursor-pointer">
-        <CheckSquareIcon :size="14" /> Select
+        <CheckSquareIcon :size="14" />
+        Select
       </button>
       <button
         @click="
@@ -110,7 +127,8 @@ const downloadFile = () => {
           }
         "
         class="hover:bg-surface-2 flex w-full items-center gap-2 px-3 py-2 text-left hover:cursor-pointer">
-        <MoveIcon :size="14" /> Move to folder
+        <MoveIcon :size="14" />
+        Move to folder
       </button>
 
       <div class="border-border my-1 border-t" />
@@ -123,7 +141,8 @@ const downloadFile = () => {
           }
         "
         class="text-danger hover:bg-surface-2 flex w-full items-center gap-2 px-3 py-2 text-left hover:cursor-pointer">
-        <Trash2Icon :size="14" /> Delete
+        <Trash2Icon :size="14" />
+        Delete
       </button>
     </div>
   </Teleport>

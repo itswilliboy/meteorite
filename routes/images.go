@@ -154,6 +154,47 @@ func ImageUpload(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+type renameImageReceive struct {
+	Filename string `json:"filename"`
+}
+
+type renameImageResp struct {
+	ID       string `json:"id"`
+	Filename string `json:"filename"`
+}
+
+func RenameImage(w http.ResponseWriter, r *http.Request) error {
+	userID := utils.GetUserID(r)
+	imageID := r.PathValue("id")
+
+	payload, err := utils.ReadJSONBody[*renameImageReceive](w, r.Body, 1<<10)
+	if err != nil {
+		return err
+	}
+
+	filename := strings.TrimSpace(payload.Filename)
+	if filename == "" {
+		return utils.NewHTTPError(http.StatusBadRequest, "Filename cannot be empty.")
+	}
+
+	var resp renameImageResp
+	err = utils.DB.QueryRow(
+		r.Context(),
+		`
+			UPDATE media SET filename = $1
+			WHERE id = $2 AND user_id = $3
+			RETURNING id, filename
+		`,
+		filename, imageID, userID,
+	).Scan(&resp.ID, &resp.Filename)
+	if err != nil {
+		return utils.NotFoundIfNoRows(err, "Image not found.")
+	}
+
+	utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusOK, Data: resp})
+	return nil
+}
+
 // /{id} --redirect--> /{user}/{id}
 
 func ImageRedirect(w http.ResponseWriter, r *http.Request) error {

@@ -129,6 +129,13 @@ export class Client {
     return this.request<string[]>("/api/bulk-move-images", { method: "POST", body: { ids, folder_id: folderId } })
   }
 
+  async renameImage(id: string, filename: string): Promise<{ id: string; filename: string }> {
+    return this.request<{ id: string; filename: string }>(`/api/images/${id}/rename`, {
+      method: "POST",
+      body: { filename }
+    })
+  }
+
   async getFolders(parentId: string | null = null): Promise<FolderListing> {
     const query = parentId ? `?parent_id=${encodeURIComponent(parentId)}` : ""
     return this.request<FolderListing>(`/api/folders${query}`)

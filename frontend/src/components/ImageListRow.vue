@@ -11,7 +11,11 @@ import ImageOrVideo from "./ImageOrVideo.vue"
 import { CheckIcon, MoreVerticalIcon, Trash2Icon } from "lucide-vue-next"
 import ConfirmDialogue from "./ConfirmDialogue.vue"
 
-const { image, selectable = false, selected = false } = defineProps<{
+const {
+  image,
+  selectable = false,
+  selected = false
+} = defineProps<{
   image: Image
   selectable?: boolean
   selected?: boolean
@@ -27,6 +31,7 @@ const emit = defineEmits<{
   pop: [id: string]
   select: [id: string]
   move: [id: string]
+  rename: [id: string]
 }>()
 
 const deleteImage = () => {
@@ -57,7 +62,7 @@ const onContextMenu = (e: MouseEvent) => {
     @click="onRowClick"
     @contextmenu="onContextMenu"
     :class="[
-      'bg-surface hover:bg-surface-2 group relative flex w-full cursor-pointer items-center gap-3 border-b border-border px-2 py-2 transition last:border-b-0',
+      'bg-surface hover:bg-surface-2 group border-border relative flex w-full cursor-pointer items-center gap-3 border-b px-2 py-2 transition last:border-b-0',
       selectable && 'select-none',
       selected && 'bg-primary/10'
     ]">
@@ -88,7 +93,7 @@ const onContextMenu = (e: MouseEvent) => {
         :compact="true"
         fit="cover"
         :thumbnail-width="80"
-        class="*:size-full! block! size-full *:rounded-none!" />
+        class="block! size-full *:size-full! *:rounded-none!" />
     </div>
 
     <div class="min-w-0 flex-1">
@@ -124,11 +129,12 @@ const onContextMenu = (e: MouseEvent) => {
       :image="image"
       @select="$emit('select', image.id)"
       @move="$emit('move', image.id)"
+      @rename="$emit('rename', image.id)"
       @delete="confirmOpen = true" />
     <button
       v-if="!selectable"
       @click.stop="onMenuButtonClick"
-      class="text-muted hover:bg-surface-2 hover:text-foreground grid size-8 shrink-0 place-items-center rounded-full opacity-0 transition-opacity duration-200 hover:cursor-pointer group-hover:opacity-100">
+      class="text-muted hover:bg-surface-2 hover:text-foreground grid size-8 shrink-0 place-items-center rounded-full opacity-0 transition-opacity duration-200 group-hover:opacity-100 hover:cursor-pointer">
       <MoreVerticalIcon :size="16" />
     </button>
   </div>

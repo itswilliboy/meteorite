@@ -35,6 +35,7 @@ const emit = defineEmits<{
   pop: [id: string]
   select: [id: string]
   move: [id: string]
+  rename: [id: string]
 }>()
 
 const deleteImage = () => {
@@ -82,11 +83,12 @@ const onContextMenu = (e: MouseEvent) => {
       :image="image"
       @select="$emit('select', image.id)"
       @move="$emit('move', image.id)"
+      @rename="$emit('rename', image.id)"
       @delete="confirmOpen = true" />
     <button
       v-if="!selectable"
       @click.stop="onMenuButtonClick"
-      class="absolute top-2 right-2 z-10 grid size-7 place-items-center rounded-full bg-black/40 text-white opacity-0 backdrop-blur-sm transition-opacity duration-200 hover:cursor-pointer hover:bg-black/60 group-hover:opacity-100">
+      class="absolute top-2 right-2 z-10 grid size-7 place-items-center rounded-full bg-black/40 text-white opacity-0 backdrop-blur-sm transition-opacity duration-200 group-hover:opacity-100 hover:cursor-pointer hover:bg-black/60">
       <MoreVerticalIcon :size="16" />
     </button>
     <div
@@ -105,7 +107,7 @@ const onContextMenu = (e: MouseEvent) => {
         :thumbnail="true"
         :fit="fit"
         :thumbnail-width="thumbnailWidth"
-        class="*:size-full! block! size-full *:rounded-none!" />
+        class="block! size-full *:size-full! *:rounded-none!" />
     </div>
 
     <div

@@ -1,12 +1,21 @@
 <script setup lang="ts">
 import { useKeydown } from "@/composables/useKeydown"
 import { FolderPlusIcon, XIcon } from "lucide-vue-next"
-import { nextTick, ref, useTemplateRef } from "vue"
+import { nextTick, ref, useTemplateRef, type Component } from "vue"
 
-const { title, confirmText = "Create", initialValue = "", confirmAction } = defineProps<{
+const {
+  title,
+  confirmText = "Create",
+  initialValue = "",
+  placeholder = "Folder name",
+  icon = FolderPlusIcon,
+  confirmAction
+} = defineProps<{
   title: string
   confirmText?: string
   initialValue?: string
+  placeholder?: string
+  icon?: Component
   confirmAction: (name: string) => unknown
 }>()
 
@@ -44,13 +53,15 @@ useKeydown(e => {
 
 <template>
   <Teleport to="body">
-    <div class="fixed inset-0 z-[999] flex items-center justify-center p-4">
+    <div class="fixed inset-0 z-999 flex items-center justify-center p-4">
       <Transition name="backdrop" appear>
         <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" @click="$emit('dismiss')" />
       </Transition>
 
       <Transition name="panel" appear>
-        <form @submit.prevent="submit" class="bg-surface border-border/60 relative z-50 w-105 max-w-full rounded-2xl border p-6 shadow-2xl">
+        <form
+          @submit.prevent="submit"
+          class="bg-surface border-border/60 relative z-50 w-105 max-w-full rounded-2xl border p-6 shadow-2xl">
           <h1 class="text-2xl font-semibold">{{ title }}</h1>
 
           <input
@@ -58,8 +69,8 @@ useKeydown(e => {
             v-model="name"
             type="text"
             maxlength="255"
-            placeholder="Folder name"
-            class="border-border bg-surface-2 text-foreground mt-4 w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:border-primary" />
+            :placeholder="placeholder"
+            class="border-border bg-surface-2 text-foreground focus:border-primary mt-4 w-full rounded-lg border px-3 py-2.5 text-sm outline-none" />
 
           <div
             class="mt-6 grid w-full grid-cols-2 gap-2 text-center *:flex *:cursor-pointer *:items-center *:justify-center *:gap-1.5 *:rounded-xl *:p-3 *:text-sm *:font-semibold *:transition *:hover:opacity-90">
@@ -71,7 +82,7 @@ useKeydown(e => {
               type="submit"
               class="bg-primary text-white disabled:cursor-not-allowed disabled:opacity-60"
               :disabled="!name.trim() || submitting">
-              <FolderPlusIcon class="size-4" />
+              <component :is="icon" class="size-4" />
               {{ submitting ? "Saving..." : confirmText }}
             </button>
           </div>

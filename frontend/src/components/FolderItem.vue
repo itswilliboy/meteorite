@@ -3,7 +3,12 @@ import type { Folder } from "@/utils/type"
 import { CheckIcon, FolderIcon, MoreVerticalIcon, MoveIcon, CheckSquareIcon, PencilIcon, Trash2Icon } from "lucide-vue-next"
 import { computed, onBeforeUnmount, ref, useTemplateRef, watch } from "vue"
 
-const { folder, mode, selectable = false, selected = false } = defineProps<{
+const {
+  folder,
+  mode,
+  selectable = false,
+  selected = false
+} = defineProps<{
   folder: Folder
   mode: "grid" | "list"
   selectable?: boolean
@@ -124,7 +129,7 @@ onBeforeUnmount(() => window.removeEventListener("click", onDocumentClick))
       v-if="!selectable"
       ref="menuButtonRef"
       @click.stop="openMenuFromButton"
-      class="text-muted absolute top-1.5 right-1.5 grid size-7 place-items-center rounded-full opacity-0 transition hover:cursor-pointer hover:bg-black/10 group-hover:opacity-100 dark:hover:bg-white/10">
+      class="text-muted absolute top-1.5 right-1.5 grid size-7 place-items-center rounded-full opacity-0 transition group-hover:opacity-100 hover:cursor-pointer hover:bg-black/10 dark:hover:bg-white/10">
       <MoreVerticalIcon :size="16" />
     </button>
   </div>
@@ -138,7 +143,7 @@ onBeforeUnmount(() => window.removeEventListener("click", onDocumentClick))
     @dragleave="onDragLeave"
     @drop.prevent="onDrop"
     :class="[
-      'bg-surface hover:bg-surface-2 group relative flex w-full cursor-pointer items-center gap-3 border-b border-border px-2 py-2 transition last:border-b-0',
+      'bg-surface hover:bg-surface-2 group border-border relative flex w-full cursor-pointer items-center gap-3 border-b px-2 py-2 transition last:border-b-0',
       isDragOver && 'ring-primary bg-primary/10 ring-2 ring-inset',
       selected && 'bg-primary/10'
     ]">
@@ -165,7 +170,7 @@ onBeforeUnmount(() => window.removeEventListener("click", onDocumentClick))
       v-if="!selectable"
       ref="menuButtonRef"
       @click.stop="openMenuFromButton"
-      class="text-muted grid size-8 shrink-0 place-items-center rounded-full opacity-0 transition hover:cursor-pointer hover:bg-black/10 group-hover:opacity-100 dark:hover:bg-white/10">
+      class="text-muted grid size-8 shrink-0 place-items-center rounded-full opacity-0 transition group-hover:opacity-100 hover:cursor-pointer hover:bg-black/10 dark:hover:bg-white/10">
       <MoreVerticalIcon :size="16" />
     </button>
   </div>
@@ -174,7 +179,7 @@ onBeforeUnmount(() => window.removeEventListener("click", onDocumentClick))
     <div
       v-if="menuOpen"
       ref="menuPanelRef"
-      class="border-border bg-surface fixed z-[999] w-36 overflow-hidden rounded-lg border py-1 shadow-lg"
+      class="border-border bg-surface fixed z-999 w-36 overflow-hidden rounded-lg border py-1 shadow-lg"
       :style="{ left: menuPosition.x + 'px', top: menuPosition.y + 'px' }">
       <button
         @click.stop="
@@ -184,7 +189,8 @@ onBeforeUnmount(() => window.removeEventListener("click", onDocumentClick))
           }
         "
         class="hover:bg-surface-2 flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:cursor-pointer">
-        <PencilIcon :size="14" /> Rename
+        <PencilIcon :size="14" />
+        Rename
       </button>
       <button
         @click.stop="
@@ -194,7 +200,8 @@ onBeforeUnmount(() => window.removeEventListener("click", onDocumentClick))
           }
         "
         class="hover:bg-surface-2 flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:cursor-pointer">
-        <CheckSquareIcon :size="14" /> Select
+        <CheckSquareIcon :size="14" />
+        Select
       </button>
       <button
         @click.stop="
@@ -204,7 +211,8 @@ onBeforeUnmount(() => window.removeEventListener("click", onDocumentClick))
           }
         "
         class="hover:bg-surface-2 flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:cursor-pointer">
-        <MoveIcon :size="14" /> Move to folder
+        <MoveIcon :size="14" />
+        Move to folder
       </button>
 
       <div class="border-border my-1 border-t" />
@@ -217,7 +225,8 @@ onBeforeUnmount(() => window.removeEventListener("click", onDocumentClick))
           }
         "
         class="text-danger hover:bg-surface-2 flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:cursor-pointer">
-        <Trash2Icon :size="14" /> Delete
+        <Trash2Icon :size="14" />
+        Delete
       </button>
     </div>
   </Teleport>

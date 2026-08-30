@@ -300,7 +300,11 @@ watch(isHovered, after => {
           :src="coverUrl"
           :loading="thumbnail ? 'lazy' : undefined"
           class="pointer-events-none absolute inset-0 size-full object-cover brightness-75" />
-        <LucideMusic v-else class="text-primary/25 pointer-events-none absolute" :size="previewIconSize" :stroke-width="1.5" />
+        <LucideMusic
+          v-else
+          class="text-primary/25 pointer-events-none absolute"
+          :size="previewIconSize"
+          :stroke-width="1.5" />
 
         <button
           v-if="!compact"

@@ -32,7 +32,8 @@ import {
   FolderPlusIcon,
   HomeIcon,
   ChevronRightIcon,
-  MoveIcon
+  MoveIcon,
+  PencilIcon
 } from "lucide-vue-next"
 
 defineOptions({ name: "DashImageView" })
@@ -62,6 +63,7 @@ const openFolder = (id: string | null) => {
 const newFolderDialogOpen = ref(false)
 const renameFolderTarget = ref<Folder | null>(null)
 const deleteFolderTarget = ref<Folder | null>(null)
+const renameImageTarget = ref<Image | null>(null)
 const moveDialogOpen = ref(false)
 
 const createFolder = async (name: string) => {
@@ -81,6 +83,17 @@ const renameFolder = async (name: string) => {
     await loadFolders()
   } catch (e) {
     push({ title: e instanceof HTTPException ? e.message : "Could not rename folder", colour: "danger", delay: 6000 })
+  }
+}
+
+const renameImage = async (filename: string) => {
+  if (!renameImageTarget.value) return
+  try {
+    const resp = await client.renameImage(renameImageTarget.value.id, filename)
+    const item = images.value.find(img => img.id === resp.id)
+    if (item) item.filename = resp.filename
+  } catch (e) {
+    push({ title: e instanceof HTTPException ? e.message : "Could not rename file", colour: "danger", delay: 6000 })
   }
 }
 
@@ -633,6 +646,16 @@ const uploadFiles = async (files: File[]) => {
       @dismiss="renameFolderTarget = null"
       :confirm-action="renameFolder" />
 
+    <FolderNameDialog
+      v-if="renameImageTarget"
+      title="Rename file"
+      confirm-text="Rename"
+      placeholder="File name"
+      :icon="PencilIcon"
+      :initial-value="renameImageTarget.filename ?? renameImageTarget.id"
+      @dismiss="renameImageTarget = null"
+      :confirm-action="renameImage" />
+
     <ConfirmDialogue
       v-if="deleteFolderTarget"
       @dismiss="deleteFolderTarget = null"
@@ -829,6 +852,7 @@ const uploadFiles = async (files: File[]) => {
             :thumbnail-width="thumbnailWidth"
             @select="selectItemViaMenu"
             @move="moveItemViaMenu"
+            @rename="id => (renameImageTarget = images.find(img => img.id === id) ?? null)"
             @pop="
               id => {
                 images.splice(
@@ -886,6 +910,7 @@ const uploadFiles = async (files: File[]) => {
               :selected="selected.has(image.id)"
               @select="selectItemViaMenu"
               @move="moveItemViaMenu"
+              @rename="id => (renameImageTarget = images.find(img => img.id === id) ?? null)"
               @pop="
                 id => {
                   images.splice(

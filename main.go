@@ -87,6 +87,7 @@ func main() {
 			r.Post("/delete-image", utils.Wrap(routes.DeleteImage))
 			r.Post("/bulk-delete-images", utils.Wrap(routes.BulkDeleteImages))
 			r.Post("/bulk-move-images", utils.Wrap(routes.BulkMoveImages))
+			r.Post("/images/{id}/rename", utils.Wrap(routes.RenameImage))
 
 			r.Get("/folders", utils.Wrap(routes.GetFolders))
 			r.Post("/folders", utils.Wrap(routes.CreateFolder))

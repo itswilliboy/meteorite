@@ -12,7 +12,7 @@ import {
   DownloadIcon,
   LinkIcon,
   Trash2Icon,
-  XIcon,
+  XIcon
 } from "lucide-vue-next"
 import { format } from "date-fns"
 import { formatBytes, formatDuration, formatBitrate } from "@/utils/format"
@@ -65,7 +65,8 @@ const metadataRows = computed(() => {
   if (isVideo && image.framerate) rows.push({ label: "Framerate", value: `${image.framerate.toFixed(2)} fps` })
   if (image.codec) rows.push({ label: "Codec", value: image.codec.toUpperCase() })
   if (image.bitrate) rows.push({ label: "Bitrate", value: formatBitrate(image.bitrate) })
-  if (isAudio && image.sample_rate) rows.push({ label: "Sample Rate", value: `${(image.sample_rate / 1000).toFixed(1)} kHz` })
+  if (isAudio && image.sample_rate)
+    rows.push({ label: "Sample Rate", value: `${(image.sample_rate / 1000).toFixed(1)} kHz` })
   if (isAudio && image.channels) rows.push({ label: "Channels", value: channelLabel(image.channels) })
 
   rows.push({ label: "Views", value: image.views.toLocaleString() })
@@ -86,7 +87,7 @@ const emit = defineEmits<{
 
 <template>
   <Teleport to="body">
-    <div class="fixed inset-0 z-[60] flex h-dvh w-screen items-center justify-center overflow-hidden">
+    <div class="fixed inset-0 z-60 flex h-dvh w-screen items-center justify-center overflow-hidden">
       <ConfirmDialogue
         v-if="confirmOpen"
         @dismiss="confirmOpen = false"
@@ -112,7 +113,7 @@ const emit = defineEmits<{
           <div
             :class="[
               'bg-surface border-border/60 flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-2xl border shadow-2xl lg:col-span-8',
-              isImage && 'bg-[url(/grid.svg)] bg-size-[auto_250px] bg-center bg-repeat lg:bg-size-[auto_350px]',
+              isImage && 'bg-[url(/grid.svg)] bg-size-[auto_250px] bg-center bg-repeat lg:bg-size-[auto_350px]'
             ]">
             <ImageOrVideo :image="image" :preview="false" />
           </div>
