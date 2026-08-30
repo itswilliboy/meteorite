@@ -110,7 +110,11 @@ const bulkMove = async (folderId: string | null) => {
       movedImageIds = imageIds
     } catch (e) {
       imagesFailed = true
-      push({ title: e instanceof HTTPException ? e.message : "Could not move selected files", colour: "danger", delay: 6000 })
+      push({
+        title: e instanceof HTTPException ? e.message : "Could not move selected files",
+        colour: "danger",
+        delay: 6000
+      })
     }
   }
 
@@ -120,7 +124,11 @@ const bulkMove = async (folderId: string | null) => {
     movedFolderIds = folderIds.filter((_, i) => results[i].status === "fulfilled")
     const failedCount = folderIds.length - movedFolderIds.length
     if (failedCount > 0) {
-      push({ title: `Could not move ${failedCount} ${failedCount === 1 ? "folder" : "folders"}`, colour: "danger", delay: 6000 })
+      push({
+        title: `Could not move ${failedCount} ${failedCount === 1 ? "folder" : "folders"}`,
+        colour: "danger",
+        delay: 6000
+      })
     }
   }
 
@@ -229,7 +237,9 @@ const allItems = computed(() => [
 ])
 const selectedFolderIds = computed(() => [...selected.value].filter(id => folders.value.some(f => f.id === id)))
 
-const allSelectedLoaded = computed(() => allItems.value.length > 0 && allItems.value.every(item => selected.value.has(item.id)))
+const allSelectedLoaded = computed(
+  () => allItems.value.length > 0 && allItems.value.every(item => selected.value.has(item.id))
+)
 
 const selectedSize = computed(() => [...selectedSizes.value.values()].reduce((total, size) => total + size, 0))
 
@@ -525,7 +535,11 @@ const bulkDelete = async () => {
       await client.bulkDeleteImages(imageIds)
       deletedImageIds = imageIds
     } catch (e) {
-      push({ title: e instanceof HTTPException ? e.message : "Could not delete selected files", colour: "danger", delay: 6000 })
+      push({
+        title: e instanceof HTTPException ? e.message : "Could not delete selected files",
+        colour: "danger",
+        delay: 6000
+      })
     }
   }
 
@@ -535,7 +549,11 @@ const bulkDelete = async () => {
     deletedFolderIds = folderIds.filter((_, i) => results[i].status === "fulfilled")
     const failedCount = folderIds.length - deletedFolderIds.length
     if (failedCount > 0) {
-      push({ title: `Could not delete ${failedCount} ${failedCount === 1 ? "folder" : "folders"}`, colour: "danger", delay: 6000 })
+      push({
+        title: `Could not delete ${failedCount} ${failedCount === 1 ? "folder" : "folders"}`,
+        colour: "danger",
+        delay: 6000
+      })
     }
   }
 
@@ -566,7 +584,7 @@ const uploadFiles = async (files: File[]) => {
 
   for (const file of files) {
     try {
-      await client.uploadImage(file)
+      await client.uploadImage(file, currentFolderId.value)
       succeeded++
     } catch {
       failed.push(file.name)
@@ -770,10 +788,8 @@ const uploadFiles = async (files: File[]) => {
       </div>
     </Transition>
 
-    <div class="min-h-[16rem]" @pointerdown="onGridPointerDown">
-      <Card
-        v-if="viewMode === 'grid' && folders.length > 0"
-        :class="['mb-3 grid gap-3', gridClasses[gridSize]]">
+    <div class="min-h-64" @pointerdown="onGridPointerDown">
+      <Card v-if="viewMode === 'grid' && folders.length > 0" :class="['mb-3 grid gap-3', gridClasses[gridSize]]">
         <div
           v-for="folder in folders"
           :key="folder.id"
@@ -834,7 +850,7 @@ const uploadFiles = async (files: File[]) => {
           :progress="uploadProgress"
           @selected-files="uploadFiles" />
 
-        <Card v-if="folders.length > 0" class="mb-3 overflow-hidden !p-0">
+        <Card v-if="folders.length > 0" class="mb-3 overflow-hidden p-0!">
           <div
             v-for="folder in folders"
             :key="folder.id"
@@ -854,7 +870,7 @@ const uploadFiles = async (files: File[]) => {
           </div>
         </Card>
 
-        <Card class="overflow-hidden !p-0">
+        <Card class="overflow-hidden p-0!">
           <div
             v-for="image in images"
             :key="image.id"

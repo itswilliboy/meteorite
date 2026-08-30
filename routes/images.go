@@ -45,6 +45,22 @@ func ImageUpload(w http.ResponseWriter, r *http.Request) error {
 	category := strings.Split(mtype.String(), "/")[0]
 	userID := utils.GetUserID(r)
 
+	var folderID *string
+	if fid := r.FormValue("folder_id"); fid != "" {
+		var exists bool
+		if err := utils.DB.QueryRow(
+			r.Context(),
+			`SELECT EXISTS (SELECT 1 FROM folders WHERE id = $1 AND user_id = $2)`,
+			fid, userID,
+		).Scan(&exists); err != nil {
+			return err
+		}
+		if !exists {
+			return utils.NewHTTPError(http.StatusNotFound, "Folder not found.")
+		}
+		folderID = &fid
+	}
+
 	var filename *string
 	if header != nil && header.Filename != "" {
 		name := header.Filename
@@ -113,11 +129,11 @@ func ImageUpload(w http.ResponseWriter, r *http.Request) error {
 		r.Context(),
 		`
 			INSERT INTO media
-				(id, size, mimetype, user_id, filename, width, height, duration_ms, bitrate, codec, framerate, sample_rate, channels, has_cover)
+				(id, size, mimetype, user_id, filename, width, height, duration_ms, bitrate, codec, framerate, sample_rate, channels, has_cover, folder_id)
 			VALUES
-				($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+				($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 		`,
-		id, len(data), mtype.String(), userID, filename, width, height, durationMs, bitrate, codec, framerate, sampleRate, channels, coverArt != nil,
+		id, len(data), mtype.String(), userID, filename, width, height, durationMs, bitrate, codec, framerate, sampleRate, channels, coverArt != nil, folderID,
 	)
 	if err != nil {
 		return err

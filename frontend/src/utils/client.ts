@@ -206,9 +206,10 @@ export class Client {
     return this.request<void>(`/api/webauthn/credentials/${id}/delete`, { method: "POST" })
   }
 
-  async uploadImage(imageData: Blob): Promise<{ URL: string }> {
+  async uploadImage(imageData: Blob, folderId?: string | null): Promise<{ URL: string }> {
     const formData = new FormData()
     formData.append("file", imageData)
+    if (folderId) formData.append("folder_id", folderId)
 
     // only returns url
     return $fetch<{ URL: string }>("/api/upload", { method: "POST", body: formData })

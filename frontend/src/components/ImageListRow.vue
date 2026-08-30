@@ -92,11 +92,17 @@ const onContextMenu = (e: MouseEvent) => {
     </div>
 
     <div class="min-w-0 flex-1">
-      <span
+      <a
+        :href="selectable ? undefined : image.url"
+        target="_blank"
         :title="image.filename ?? image.id"
-        :class="['text-foreground block truncate text-sm font-medium', !selectable && 'group-hover:underline']">
+        :class="[
+          'text-foreground block truncate text-sm font-medium',
+          selectable ? 'cursor-pointer' : 'hover:underline'
+        ]"
+        @click.stop>
         {{ image.filename ?? image.id }}
-      </span>
+      </a>
     </div>
 
     <div class="text-muted hidden w-20 shrink-0 truncate text-xs font-medium sm:block">
