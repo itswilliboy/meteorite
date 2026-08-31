@@ -6,6 +6,8 @@ import type { Image } from "@/utils/type"
 import { computed, onMounted, ref, useTemplateRef, watch } from "vue"
 import { LucideMusic, LucidePlay, LucidePause, Volume2, VolumeX, FileText, File as LucideFile } from "lucide-vue-next"
 import { formatDuration } from "@/utils/format"
+import { marked } from "marked"
+import DOMPurify from "dompurify"
 
 const {
   image,
@@ -30,6 +32,8 @@ const playIconSize = compact ? 11 : 18
 const { isImage, isVideo, isAudio, isText, isOther } = useMediaType(image.mimetype)
 const { setActive, clearActive } = useActiveMedia()
 
+const isMarkdown = computed(() => isText && /\.(md|markdown)$/i.test(image.filename ?? ""))
+
 const mediaUrl = computed(() => {
   if (isVideo || isAudio) return image.url
 
@@ -46,6 +50,11 @@ const mediaUrl = computed(() => {
 const textContent = ref<string | null>(null)
 const textLoading = ref(false)
 const textError = ref(false)
+
+const markdownHtml = computed(() => {
+  if (!isMarkdown.value || textContent.value === null) return ""
+  return DOMPurify.sanitize(marked.parse(textContent.value, { async: false, breaks: true }))
+})
 
 onMounted(() => {
   if (!isText || preview) return
@@ -271,6 +280,10 @@ watch(isHovered, after => {
         <div v-else-if="textError" class="text-muted grid size-full place-items-center text-sm">
           Couldn't load a preview.
         </div>
+        <div
+          v-else-if="isMarkdown"
+          class="markdown-preview text-foreground size-full overflow-auto p-4 text-sm leading-relaxed"
+          v-html="markdownHtml" />
         <pre
           v-else
           class="text-foreground size-full overflow-auto p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap"
@@ -412,3 +425,102 @@ watch(isHovered, after => {
     </div>
   </span>
 </template>
+
+<style scoped>
+.markdown-preview :deep(h1),
+.markdown-preview :deep(h2),
+.markdown-preview :deep(h3),
+.markdown-preview :deep(h4),
+.markdown-preview :deep(h5),
+.markdown-preview :deep(h6) {
+  font-weight: 600;
+  line-height: 1.3;
+  margin-top: 1.2em;
+  margin-bottom: 0.5em;
+}
+
+.markdown-preview :deep(h1) {
+  font-size: 1.5em;
+}
+.markdown-preview :deep(h2) {
+  font-size: 1.25em;
+}
+.markdown-preview :deep(h3) {
+  font-size: 1.1em;
+}
+
+.markdown-preview :deep(p),
+.markdown-preview :deep(ul),
+.markdown-preview :deep(ol),
+.markdown-preview :deep(blockquote),
+.markdown-preview :deep(pre),
+.markdown-preview :deep(table) {
+  margin-bottom: 0.75em;
+}
+
+.markdown-preview :deep(ul),
+.markdown-preview :deep(ol) {
+  padding-left: 1.5em;
+}
+
+.markdown-preview :deep(ul) {
+  list-style: disc;
+}
+
+.markdown-preview :deep(ol) {
+  list-style: decimal;
+}
+
+.markdown-preview :deep(a) {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.markdown-preview :deep(code) {
+  background-color: var(--color-surface-2);
+  border-radius: 0.25em;
+  padding: 0.15em 0.4em;
+  font-family: monospace;
+  font-size: 0.85em;
+}
+
+.markdown-preview :deep(pre) {
+  background-color: var(--color-surface-2);
+  border-radius: 0.5em;
+  padding: 0.75em 1em;
+  overflow-x: auto;
+}
+
+.markdown-preview :deep(pre code) {
+  background-color: transparent;
+  padding: 0;
+}
+
+.markdown-preview :deep(blockquote) {
+  border-left: 3px solid var(--color-border);
+  padding-left: 1em;
+  color: var(--color-muted);
+}
+
+.markdown-preview :deep(img) {
+  max-width: 100%;
+}
+
+.markdown-preview :deep(hr) {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 1em 0;
+}
+
+.markdown-preview :deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.markdown-preview :deep(th),
+.markdown-preview :deep(td) {
+  border: 1px solid var(--color-border);
+  padding: 0.4em 0.6em;
+  text-align: left;
+}
+</style>
