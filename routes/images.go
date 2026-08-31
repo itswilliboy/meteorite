@@ -42,7 +42,7 @@ func ImageUpload(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	mtype := mimetype.Detect(data)
-	category := strings.Split(mtype.String(), "/")[0]
+	category, _, _ := strings.Cut(mtype.String(), "/")
 	userID := utils.GetUserID(r)
 
 	var folderID *string
@@ -201,7 +201,7 @@ func ImageRedirect(w http.ResponseWriter, r *http.Request) error {
 	filename := r.PathValue("id")
 
 	// EeZDFWheuD.png
-	imageID := strings.Split(filename, ".")[0]
+	imageID, _, _ := strings.Cut(filename, ".")
 
 	var userID int
 	err := utils.DB.QueryRow(r.Context(), "SELECT user_id FROM media WHERE id = $1", imageID).Scan(&userID)
