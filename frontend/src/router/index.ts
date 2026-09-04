@@ -60,9 +60,8 @@ const router = createRouter({
 })
 
 router.beforeEach(to => {
-  if (to.name === "login" && currentUser.value) {
-    return "/dash/home"
-  }
+  if (to.name === "login" && currentUser.value) return "/dash/home"
+  if (to.path.startsWith("/dash") && !currentUser.value) return "/login"
 })
 
 export default router
