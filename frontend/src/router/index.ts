@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from "vue-router"
 // import HomeView from "../views/HomeView.vue"
+import { currentUser } from "@/composables/useAuth"
 
 const dashRoutes = [
   {
@@ -41,7 +42,7 @@ const router = createRouter({
       path: "/",
       name: "home",
       // component: HomeView
-      redirect: "/login"
+      redirect: () => (currentUser.value ? "/dash/home" : "/login")
     },
     {
       path: "/login",
@@ -56,6 +57,12 @@ const router = createRouter({
       children: dashRoutes
     }
   ]
+})
+
+router.beforeEach(to => {
+  if (to.name === "login" && currentUser.value) {
+    return "/dash/home"
+  }
 })
 
 export default router
