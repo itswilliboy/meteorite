@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -100,7 +101,13 @@ func RunDBMigrations() {
 
 	// Make sure migrations are in order
 	sort.Slice(migrations, func(i, j int) bool {
-		return migrations[i][0] < migrations[j][0]
+		a, err := strconv.Atoi(migrations[i][0])
+		CheckError(err)
+
+		b, err := strconv.Atoi(migrations[j][0])
+		CheckError(err)
+
+		return a < b
 	})
 
 	for _, migration := range migrations {
