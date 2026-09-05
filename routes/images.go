@@ -20,6 +20,62 @@ type imageUploadResponse struct {
 	URL string `json:"url"`
 }
 
+type mediaMetadata struct {
+	Width, Height, DurationMs, Bitrate, SampleRate, Channels *int
+	Codec                                                    *string
+	Framerate                                                *float64
+	CoverArt                                                 []byte
+}
+
+func extractMediaMetadata(data []byte, category string, extension string) mediaMetadata {
+	var meta mediaMetadata
+
+	switch category {
+	case "image":
+		if cfg, _, err := image.DecodeConfig(bytes.NewReader(data)); err == nil {
+			w, h := cfg.Width, cfg.Height
+			meta.Width, meta.Height = &w, &h
+		}
+	case "video", "audio":
+		if m, err := utils.ProbeMedia(data, extension); err == nil {
+			if m.Width > 0 {
+				meta.Width = &m.Width
+			}
+			if m.Height > 0 {
+				meta.Height = &m.Height
+			}
+			if m.DurationMs > 0 {
+				meta.DurationMs = &m.DurationMs
+			}
+			if m.Bitrate > 0 {
+				meta.Bitrate = &m.Bitrate
+			}
+			if m.Codec != "" {
+				meta.Codec = &m.Codec
+			}
+			if m.Framerate > 0 {
+				meta.Framerate = &m.Framerate
+			}
+			if m.SampleRate > 0 {
+				meta.SampleRate = &m.SampleRate
+			}
+			if m.Channels > 0 {
+				meta.Channels = &m.Channels
+			}
+		} else {
+			log.Printf("Error probing media: %v\n", err)
+		}
+
+		if category == "audio" {
+			if art, err := utils.ExtractCoverArt(data, extension); err == nil {
+				meta.CoverArt = art
+			}
+		}
+	}
+
+	return meta
+}
+
 func ImageUpload(w http.ResponseWriter, r *http.Request) error {
 	r.ParseMultipartForm(100 << 20)
 
@@ -63,60 +119,14 @@ func ImageUpload(w http.ResponseWriter, r *http.Request) error {
 		filename = &name
 	}
 
-	var width, height, durationMs, bitrate, sampleRate, channels *int
-	var codec *string
-	var framerate *float64
-	var coverArt []byte
-
-	switch category {
-	case "image":
-		if cfg, _, err := image.DecodeConfig(bytes.NewReader(data)); err == nil {
-			w, h := cfg.Width, cfg.Height
-			width, height = &w, &h
-		}
-	case "video", "audio":
-		if meta, err := utils.ProbeMedia(data, mtype.Extension()); err == nil {
-			if meta.Width > 0 {
-				width = &meta.Width
-			}
-			if meta.Height > 0 {
-				height = &meta.Height
-			}
-			if meta.DurationMs > 0 {
-				durationMs = &meta.DurationMs
-			}
-			if meta.Bitrate > 0 {
-				bitrate = &meta.Bitrate
-			}
-			if meta.Codec != "" {
-				codec = &meta.Codec
-			}
-			if meta.Framerate > 0 {
-				framerate = &meta.Framerate
-			}
-			if meta.SampleRate > 0 {
-				sampleRate = &meta.SampleRate
-			}
-			if meta.Channels > 0 {
-				channels = &meta.Channels
-			}
-		} else {
-			log.Printf("Error probing media: %v\n", err)
-		}
-
-		if category == "audio" {
-			if art, err := utils.ExtractCoverArt(data, mtype.Extension()); err == nil {
-				coverArt = art
-			}
-		}
-	}
+	meta := extractMediaMetadata(data, category, mtype.Extension())
 
 	if err := utils.PutObject(r.Context(), utils.MediaBucket, id, data, mtype.String()); err != nil {
 		return err
 	}
-	if coverArt != nil {
-		coverType := mimetype.Detect(coverArt).String()
-		if err := utils.PutObject(r.Context(), utils.CoversBucket, id, coverArt, coverType); err != nil {
+	if meta.CoverArt != nil {
+		coverType := mimetype.Detect(meta.CoverArt).String()
+		if err := utils.PutObject(r.Context(), utils.CoversBucket, id, meta.CoverArt, coverType); err != nil {
 			return err
 		}
 	}
@@ -129,7 +139,9 @@ func ImageUpload(w http.ResponseWriter, r *http.Request) error {
 			VALUES
 				($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 		`,
-		id, len(data), mtype.String(), userID, filename, width, height, durationMs, bitrate, codec, framerate, sampleRate, channels, coverArt != nil, folderID,
+		id, len(data), mtype.String(), userID, filename,
+		meta.Width, meta.Height, meta.DurationMs, meta.Bitrate, meta.Codec, meta.Framerate, meta.SampleRate, meta.Channels,
+		meta.CoverArt != nil, folderID,
 	)
 	if err != nil {
 		return err
