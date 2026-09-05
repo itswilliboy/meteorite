@@ -231,7 +231,7 @@ func ImageRedirect(w http.ResponseWriter, r *http.Request) error {
 func ImageGet(w http.ResponseWriter, r *http.Request) error {
 	user := r.PathValue("user")
 	id := r.PathValue("id")
-	split := strings.Split(id, ".")
+	mediaID, _, _ := strings.Cut(id, ".")
 
 	// this route is unauthenticated and public,
 	// so allowing cross-origin reads (needed for dash text
@@ -256,14 +256,14 @@ func ImageGet(w http.ResponseWriter, r *http.Request) error {
 			JOIN users ON m.user_id = users.id
 				WHERE m.id = $1 AND users.name = $2;
 			`,
-			split[0], user,
+			mediaID, user,
 		).Scan(&hasCover)
 		if err != nil || !hasCover {
 			utils.WriteCodeError(w, http.StatusNotFound)
 			return nil
 		}
 
-		coverArt, err := utils.GetObject(r.Context(), utils.CoversBucket, split[0])
+		coverArt, err := utils.GetObject(r.Context(), utils.CoversBucket, mediaID)
 		if err != nil {
 			if utils.IsNotFound(err) {
 				utils.WriteCodeError(w, http.StatusNotFound)
@@ -306,13 +306,13 @@ func ImageGet(w http.ResponseWriter, r *http.Request) error {
 		JOIN users ON u.user_id = users.id
 			WHERE users.name = $2;
 		`,
-		split[0], user, isDashboard,
+		mediaID, user, isDashboard,
 	).Scan(&mimeType, &filename)
 	if err != nil {
 		return utils.NotFoundIfNoRows(err, http.StatusText(http.StatusNotFound))
 	}
 
-	imageData, err := utils.GetObject(r.Context(), utils.MediaBucket, split[0])
+	imageData, err := utils.GetObject(r.Context(), utils.MediaBucket, mediaID)
 	if err != nil {
 		if utils.IsNotFound(err) {
 			utils.WriteCodeError(w, http.StatusNotFound)
