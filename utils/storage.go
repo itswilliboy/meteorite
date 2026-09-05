@@ -111,6 +111,17 @@ func DeleteObject(ctx context.Context, bucket, key string) error {
 	return err
 }
 
+func DeleteMediaObjects(ctx context.Context, id string, hasCover bool) {
+	if err := DeleteObject(ctx, MediaBucket, id); err != nil {
+		log.Printf("Error deleting media object %q: %v\n", id, err)
+	}
+	if hasCover {
+		if err := DeleteObject(ctx, CoversBucket, id); err != nil {
+			log.Printf("Error deleting cover object %q: %v\n", id, err)
+		}
+	}
+}
+
 func IsNotFound(err error) bool {
 	var apiErr smithy.APIError
 	if !errors.As(err, &apiErr) {

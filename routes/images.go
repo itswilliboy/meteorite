@@ -490,14 +490,7 @@ func DeleteImage(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if deleted {
-		if err := utils.DeleteObject(r.Context(), utils.MediaBucket, imageID); err != nil {
-			log.Printf("Error deleting media object %q: %v\n", imageID, err)
-		}
-		if hasCover {
-			if err := utils.DeleteObject(r.Context(), utils.CoversBucket, imageID); err != nil {
-				log.Printf("Error deleting cover object %q: %v\n", imageID, err)
-			}
-		}
+		utils.DeleteMediaObjects(r.Context(), imageID, hasCover)
 
 		utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusOK})
 		return nil
@@ -565,15 +558,7 @@ func BulkDeleteImages(w http.ResponseWriter, r *http.Request) error {
 	deletedIDs := make([]string, 0, len(removed))
 	for _, rm := range removed {
 		deletedIDs = append(deletedIDs, rm.id)
-
-		if err := utils.DeleteObject(r.Context(), utils.MediaBucket, rm.id); err != nil {
-			log.Printf("Error deleting media object %q: %v\n", rm.id, err)
-		}
-		if rm.hasCover {
-			if err := utils.DeleteObject(r.Context(), utils.CoversBucket, rm.id); err != nil {
-				log.Printf("Error deleting cover object %q: %v\n", rm.id, err)
-			}
-		}
+		utils.DeleteMediaObjects(r.Context(), rm.id, rm.hasCover)
 	}
 
 	utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusOK, Data: deletedIDs})

@@ -2,7 +2,6 @@ package routes
 
 import (
 	"img/utils"
-	"log"
 	"net/http"
 	"slices"
 	"strings"
@@ -310,14 +309,7 @@ func DeleteFolder(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	for _, rm := range removed {
-		if err := utils.DeleteObject(r.Context(), utils.MediaBucket, rm.id); err != nil {
-			log.Printf("Error deleting media object %q: %v\n", rm.id, err)
-		}
-		if rm.hasCover {
-			if err := utils.DeleteObject(r.Context(), utils.CoversBucket, rm.id); err != nil {
-				log.Printf("Error deleting cover object %q: %v\n", rm.id, err)
-			}
-		}
+		utils.DeleteMediaObjects(r.Context(), rm.id, rm.hasCover)
 	}
 
 	utils.WriteJSONBody(w, utils.JSONResponse{Status: http.StatusOK})
