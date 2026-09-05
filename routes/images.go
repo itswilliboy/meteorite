@@ -250,51 +250,57 @@ func ImageGet(w http.ResponseWriter, r *http.Request) error {
 	w.Header().Set("Content-Security-Policy", "sandbox allow-scripts")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 
-	isDashboard := (r.URL.Query().Get("d") == "true")
-	wantCover := (r.URL.Query().Get("cover") == "true")
-	wantDownload := (r.URL.Query().Get("download") == "true")
+	if r.URL.Query().Get("cover") == "true" {
+		return serveCoverArt(w, r, user, mediaID)
+	}
+	return serveMedia(w, r, user, id, mediaID)
+}
 
-	if wantCover {
-		var hasCover bool
-		err := utils.DB.QueryRow(
-			r.Context(),
-			`
-			SELECT m.has_cover
-			FROM media m
-			JOIN users ON m.user_id = users.id
-				WHERE m.id = $1 AND users.name = $2;
-			`,
-			mediaID, user,
-		).Scan(&hasCover)
-		if err != nil || !hasCover {
+func serveCoverArt(w http.ResponseWriter, r *http.Request, user, mediaID string) error {
+	var hasCover bool
+	err := utils.DB.QueryRow(
+		r.Context(),
+		`
+		SELECT m.has_cover
+		FROM media m
+		JOIN users ON m.user_id = users.id
+			WHERE m.id = $1 AND users.name = $2;
+		`,
+		mediaID, user,
+	).Scan(&hasCover)
+	if err != nil || !hasCover {
+		utils.WriteCodeError(w, http.StatusNotFound)
+		return nil
+	}
+
+	coverArt, err := utils.GetObject(r.Context(), utils.CoversBucket, mediaID)
+	if err != nil {
+		if utils.IsNotFound(err) {
 			utils.WriteCodeError(w, http.StatusNotFound)
 			return nil
 		}
-
-		coverArt, err := utils.GetObject(r.Context(), utils.CoversBucket, mediaID)
-		if err != nil {
-			if utils.IsNotFound(err) {
-				utils.WriteCodeError(w, http.StatusNotFound)
-				return nil
-			}
-			return err
-		}
-
-		width := r.URL.Query().Get("width")
-		if width == "" {
-			width = "512"
-		}
-
-		resized, contentType, err := utils.ResizeAndEncode(coverArt, width)
-		if err != nil {
-			return err
-		}
-
-		w.Header().Set("Content-Type", contentType)
-		w.Header().Set("Cache-Control", "public, max-age=86400")
-		http.ServeContent(w, r, "", time.Time{}, bytes.NewReader(resized))
-		return nil
+		return err
 	}
+
+	width := r.URL.Query().Get("width")
+	if width == "" {
+		width = "512"
+	}
+
+	resized, contentType, err := utils.ResizeAndEncode(coverArt, width)
+	if err != nil {
+		return err
+	}
+
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	http.ServeContent(w, r, "", time.Time{}, bytes.NewReader(resized))
+	return nil
+}
+
+func serveMedia(w http.ResponseWriter, r *http.Request, user, id, mediaID string) error {
+	isDashboard := (r.URL.Query().Get("d") == "true")
+	wantDownload := (r.URL.Query().Get("download") == "true")
 
 	var mimeType string
 	var filename *string
