@@ -239,3 +239,13 @@ func GetUserID(r *http.Request) int {
 	id, _ := r.Context().Value(CtxUserID).(int)
 	return id
 }
+
+func FolderExists(ctx context.Context, folderID string, userID int) (bool, error) {
+	var exists bool
+	err := DB.QueryRow(
+		ctx,
+		`SELECT EXISTS (SELECT 1 FROM folders WHERE id = $1 AND user_id = $2)`,
+		folderID, userID,
+	).Scan(&exists)
+	return exists, err
+}

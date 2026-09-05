@@ -123,12 +123,8 @@ func CreateFolder(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if payload.ParentID != nil {
-		var exists bool
-		if err := utils.DB.QueryRow(
-			r.Context(),
-			`SELECT EXISTS (SELECT 1 FROM folders WHERE id = $1 AND user_id = $2)`,
-			*payload.ParentID, userID,
-		).Scan(&exists); err != nil {
+		exists, err := utils.FolderExists(r.Context(), *payload.ParentID, userID)
+		if err != nil {
 			return err
 		}
 		if !exists {
@@ -212,12 +208,8 @@ func MoveFolder(w http.ResponseWriter, r *http.Request) error {
 			return utils.NewHTTPError(http.StatusBadRequest, "Cannot move a folder into itself.")
 		}
 
-		var exists bool
-		if err := utils.DB.QueryRow(
-			r.Context(),
-			`SELECT EXISTS (SELECT 1 FROM folders WHERE id = $1 AND user_id = $2)`,
-			*payload.ParentID, userID,
-		).Scan(&exists); err != nil {
+		exists, err := utils.FolderExists(r.Context(), *payload.ParentID, userID)
+		if err != nil {
 			return err
 		}
 		if !exists {

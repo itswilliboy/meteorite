@@ -47,12 +47,8 @@ func ImageUpload(w http.ResponseWriter, r *http.Request) error {
 
 	var folderID *string
 	if fid := r.FormValue("folder_id"); fid != "" {
-		var exists bool
-		if err := utils.DB.QueryRow(
-			r.Context(),
-			`SELECT EXISTS (SELECT 1 FROM folders WHERE id = $1 AND user_id = $2)`,
-			fid, userID,
-		).Scan(&exists); err != nil {
+		exists, err := utils.FolderExists(r.Context(), fid, userID)
+		if err != nil {
 			return err
 		}
 		if !exists {
@@ -603,12 +599,8 @@ func BulkMoveImages(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if payload.FolderID != nil {
-		var exists bool
-		if err := utils.DB.QueryRow(
-			r.Context(),
-			`SELECT EXISTS (SELECT 1 FROM folders WHERE id = $1 AND user_id = $2)`,
-			*payload.FolderID, userID,
-		).Scan(&exists); err != nil {
+		exists, err := utils.FolderExists(r.Context(), *payload.FolderID, userID)
+		if err != nil {
 			return err
 		}
 		if !exists {
