@@ -92,7 +92,7 @@ func RunDBMigrations() {
 	migrations := [][]string{}
 	for _, file := range migrationsDir {
 		if file.IsDir() {
-			return
+			continue
 		}
 
 		number := strings.Split(file.Name(), "-")[0]
